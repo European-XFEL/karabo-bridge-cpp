@@ -12,7 +12,6 @@ using ::testing::ElementsAre;
 TEST(TestZMQ, VERSION) {
     int major, minor, patch;
     zmq_version (&major, &minor, &patch);
-
     ASSERT_GE(major, 4);
     ASSERT_GE(minor, 2);
 }
@@ -25,7 +24,10 @@ TEST(TestMsgpack, VERSION) {
 TEST(Server4Test, GeneralTest) {
     auto client = karabo_bridge::Client();
     client.connect("tcp://localhost:1234");
-    client.next();
+    client.dump_next();
+    auto result = client.next();
+    EXPECT_EQ(result.source, "SPB_DET_AGIPD1M-1/DET/detector");
+    printKBData(result);
 }
 
 int main(int argc, char **argv) {
