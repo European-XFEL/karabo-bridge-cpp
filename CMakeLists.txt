@@ -7,7 +7,6 @@ find_package(Threads REQUIRED)
 find_package(ZeroMQ 4.2 REQUIRED)
 find_package(msgpack 2.1 REQUIRED)
 
-include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 enable_testing()

@@ -16,13 +16,19 @@
 #include <msgpack.hpp>
 
 #include <string>
+#include <stack>
+#include <array>
 #include <iostream>
 #include <sstream>
+#include <fstream>
+#include <exception>
+#include <limits>
+
 
 namespace karabo_bridge {
 
 /*
- * For deferred unpack
+ * A proxy object for deferred unpack.
  *
  * typedef enum {
         MSGPACK_OBJECT_NIL                  = 0x00,
@@ -40,18 +46,60 @@ namespace karabo_bridge {
    } msgpack_object_type;
  */
 struct object {
-    object() {};
-    object(const msgpack::object& value): value_(value) {}
+    object() = default;  // must be default constructable
+    explicit object(const msgpack::object& value): value_(value) {}
+
+    // copy is not allowed
+    object(const object&) = delete;
+    object& operator=(const object&) = delete;
+
+    object(object&&) noexcept = default;
+    object& operator=(object&&) noexcept = default;
+    /*
+     * Cast the held msgpack::object to a given type.
+     *
+     * Exceptions:
+     * std::bad_cast if the cast fails.
+     */
+    template<typename T>
+    T as() { return value_.as<T>(); }
+
+    /*
+     * Cast the held msgpack::object::BIN object to a 1D std::array.
+     *
+     * Parameters:
+     * N: size of the output std::array.
+     *
+     * Note: users are responsible to give the correct data type and size,
+     *       otherwise it leads to undefined behavior.
+     *
+     * Exceptions:
+     * std::bad_cast if the cast fails.
+     */
+    template<typename T, std::size_t N>
+    std::array<T, N> asArray() {
+        std::array<T, N> result;
+
+        if (N != size_) throw std::invalid_argument("Inconsistent array size!");
+
+        auto tmp = value_.as<std::array<char, sizeof(T)*N>>();
+        std::memcpy(&result, &tmp, sizeof(T)*N);
+        return result;
+    }
 
     msgpack::object get() const { return value_; }
+
     uint16_t type() const { return value_.type; }
+
+    void setSize(std::size_t s) { size_ = s; }
 
 private:
     msgpack::object value_;
     MSGPACK_DEFINE(value_);
+    std::size_t size_ = 1;
 };
 
-}  // karabo_bridge
+} // karabo_bridge
 
 
 namespace msgpack {
@@ -61,7 +109,6 @@ namespace adaptor{
 /*
  * template specialization for karabo_bridge::object
  */
-
 template<>
 struct as<karabo_bridge::object> {
     karabo_bridge::object operator()(msgpack::object const& o) const {
@@ -75,9 +122,9 @@ struct as<karabo_bridge::object> {
 
 
 namespace karabo_bridge {
+
 /*
- * visitor used to unfold the hierarchy of a unknown dictionary-like
- * data structure
+ * Visitor used to unfold the hierarchy of an unknown data structure,
  */
 struct karabo_visitor {
     std::string& m_s;
@@ -119,11 +166,13 @@ struct karabo_visitor {
         return true;
     }
     bool visit_str(const char* v, uint32_t size) {
-        // I omit escape process.
         m_s += '"' + std::string(v, size) + '"';
         return true;
     }
-    bool visit_bin(const char* /*v*/, uint32_t /*size*/) {
+    bool visit_bin(const char* v, uint32_t size) {
+        if (is_key_)
+            m_s += std::string(v, size);
+        else m_s += "(bin)";
         return true;
     }
     bool visit_ext(const char* /*v*/, uint32_t /*size*/) {
@@ -132,7 +181,7 @@ struct karabo_visitor {
     bool start_array_item() {
         return true;
     }
-    bool start_array(uint32_t /*num_elements*/) {
+    bool start_array(uint32_t size) {
         m_s += "[";
         return true;
     }
@@ -146,14 +195,18 @@ struct karabo_visitor {
         return true;
     }
     bool start_map(uint32_t /*num_kv_pairs*/) {
-        m_s += "{";
+        tracker_.push(level_++);
         return true;
     }
     bool start_map_key() {
+        is_key_ = true;
+        m_s += "\n";
+        for (int i=0; i< tracker_.top(); ++i) m_s += "    ";
         return true;
     }
     bool end_map_key() {
-        m_s += ":";
+        m_s += ": ";
+        is_key_ = false;
         return true;
     }
     bool start_map_value() {
@@ -165,7 +218,8 @@ struct karabo_visitor {
     }
     bool end_map() {
         m_s.erase(m_s.size() - 1, 1); // remove the last ','
-        m_s += "}";
+        tracker_.pop();
+        --level_;
         return true;
     }
     void parse_error(size_t /*parsed_offset*/, size_t /*error_offset*/) {
@@ -178,35 +232,37 @@ struct karabo_visitor {
     // These two functions are required by parser.
     void set_referenced(bool ref) { m_ref = ref; }
     bool referenced() const { return m_ref; }
+
+private:
+    std::stack<int> tracker_;
+    uint16_t level_ = 0;
+    bool is_key_ = false;
+    bool in_array_ = false;
 };
 
-
+/*
+ * Helper function: convert a message to string.
+ */
 inline void msg2str(zmq::message_t& msg, std::string& str) {
     str = std::string(static_cast<const char *>(msg.data()), msg.size());
 }
 
 /*
- * data presented to the user
+ * Data structure presented to the user.
  */
-struct kb_data {
+struct data {
     std::string source;
-    std::map<std::string, object> data;
+    std::map<std::string, object> timestamp;
+    std::map<std::string, object> data_;
 
+    /*
+     * Exceptions:
+     * std::out_of_range if key is invalid.
+     */
     object& operator[](std::string key) {
-        return data[key];
+        return data_.at(key);
     }
 };
-
-/*
- * Helper function.
- */
-void printKBData(kb_data dt) {
-    for (auto& v: dt.data) {
-        std::cout << v.first << ": " << v.second.type();
-        if (v.second.type() == 2) std::cout << ", " << v.second.get();
-        std::cout << "\n";
-    }
-}
 
 /*
  * Karabo-bridge Client class.
@@ -216,13 +272,11 @@ class Client {
     zmq::socket_t socket_;
 
     /*
-     * Send a request to server.
-     *
-     * :param req: request. Default to "next".
+     * Send a "next" request to server.
      */
-    void send_request(const char* req="next") {
+    void send_request() {
         zmq::message_t request(4);
-        memcpy(request.data(), req, request.size());
+        memcpy(request.data(), "next", request.size());
         socket_.send(request);
     }
 
@@ -253,14 +307,13 @@ public:
     /*
      * Request and return the next data from the server.
      */
-    kb_data next() {
-        kb_data kbdt;
+    data next() {
+        using MsgObjectMap = std::map<std::string, msgpack::object>;
+
+        data kbdt;
 
         send_request();
         auto msg = receive_multipart_msg();
-
-        using MsgObjectMap = std::map<std::string, msgpack::object>;
-        using KBObjectMap = std::map<std::string, object>;
 
         msgpack::object_handle result;
         msgpack::unpack(result, static_cast<const char*>(msg.data()), msg.size());
@@ -270,9 +323,50 @@ public:
         for (auto &v : root_unpacked) {
             kbdt.source = v.first;
 
-            auto data_unpacked = v.second.as<KBObjectMap>();
+            auto data_unpacked = v.second.as<MsgObjectMap>();
             for (auto &v : data_unpacked) {
-                kbdt.data.insert(std::make_pair(v.first, v.second));
+                // hard code for "metadata"
+                if (v.first == "metadata") {
+                    auto unpacked_metadata = v.second.as<MsgObjectMap>();
+                    for (auto &v : unpacked_metadata) {
+                        if (v.first == "source")
+                            assert(v.second.as<std::string>() == kbdt.source);
+                        else if (v.first == "timestamp") {
+                            auto unpacked_timestamp = v.second.as<MsgObjectMap>();
+                            for (auto &v : unpacked_timestamp) {
+                                kbdt.timestamp.insert(std::make_pair(v.first,
+                                                                     v.second.as<object>()));
+                            }
+                        } else throw;
+                    }
+                // parse other data
+                } else {
+                    // unpack array data wrapped in a map
+                    if (v.second.type == msgpack::type::MAP) {
+                        auto unpacked_nparray = v.second.as<MsgObjectMap>();
+                        try {
+                            // keep only "data", discard descriptions.
+                            auto obj = unpacked_nparray.at("data").as<object>();
+
+                            auto shape = unpacked_nparray.at("shape").as<std::vector<std::size_t>>();
+                            std::size_t size = 1;
+                            auto max_size = std::numeric_limits<unsigned long long>::max();
+                            for (auto v : shape) {
+                                if (max_size/size < v)
+                                    throw std::overflow_error("Unmanagable array size!");
+                                size *= v;
+                            }
+
+                            obj.setSize(size);
+
+                            kbdt.data_.insert(std::make_pair(v.first, std::move(obj)));
+                        } catch (const std::out_of_range& e) {
+                            std::cout << "Unknown data structure!\n";
+                            std::cerr << e.what();
+                        }
+                    }
+                    else kbdt.data_.insert(std::make_pair(v.first, v.second.as<object>()));
+                }
             }
         }
 
@@ -280,9 +374,11 @@ public:
     }
 
     /*
-     * Dump next data to JSON format
+     * Parse the structure of the next coming data and save it to a file.
+     *
+     * Note:: this function consumes data!!!
      */
-    void dump_next() {
+    void showNext() {
         send_request();
         auto msg = receive_multipart_msg();
 
@@ -291,7 +387,9 @@ public:
         karabo_visitor visitor(data_str);
         bool ret = msgpack::v2::parse(static_cast<const char*>(msg.data()), msg.size(), visitor);
         assert(ret);
-        std::cout << "Unpacked result: " << data_str << "\n";
+        std::ofstream out("data_structure_from_server.txt");
+        out << data_str;
+        out.close();
     }
 };
 

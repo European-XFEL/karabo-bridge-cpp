@@ -10,6 +10,4 @@ target_link_libraries(Test
         pthread
 )
 
-
-
 add_test (NAME UnitTest COMMAND Test)
