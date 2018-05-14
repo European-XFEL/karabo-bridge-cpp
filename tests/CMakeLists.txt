@@ -5,7 +5,7 @@ include_directories(${GTest_INCLUDE_DIRS})
 add_executable(Test test.cpp)
 
 target_link_libraries(Test
-        libzmq
+        ${cppzmq_LIBRARY}
         gtest
         pthread
 )

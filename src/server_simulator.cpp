@@ -1,5 +1,6 @@
-#include "zmq.hpp"
-#include "../kb_client.hpp"
+#include "kb_client.hpp"
+
+#include <zmq.hpp>
 
 #include <string>
 #include <iostream>

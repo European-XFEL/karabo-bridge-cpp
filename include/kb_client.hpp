@@ -11,8 +11,7 @@
 #ifndef KARABO_BRIDGE_CPP_KB_CLIENT_HPP
 #define KARABO_BRIDGE_CPP_KB_CLIENT_HPP
 
-#include "zmq.hpp"
-
+#include <zmq.hpp>
 #include <msgpack.hpp>
 
 #include <string>
