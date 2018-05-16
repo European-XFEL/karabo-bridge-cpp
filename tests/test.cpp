@@ -11,6 +11,9 @@
 using ::testing::UnorderedElementsAre;
 using ::testing::ElementsAre;
 
+static int MSGPACK_MAJOR_VERSION = 2;
+static int MSGPACK_MINOR_VERSION = 1;
+
 
 TEST(TestZMQ, VERSION) {
     int major, minor, patch;
@@ -20,10 +23,13 @@ TEST(TestZMQ, VERSION) {
 }
 
 TEST(TestMsgpack, VERSION) {
-    int major, minor, patch;
-    std::cout << MSGPACK_VERSION << std::endl;
+    std::string v(MSGPACK_VERSION);
+    auto pos = v.find('.');
+    EXPECT_EQ(std::stoi(v.substr(0, pos)), MSGPACK_MAJOR_VERSION);
+    v.erase(0, pos + 1);
+    pos = v.find('.');
+    EXPECT_EQ(std::stoi(v.substr(0, pos)), MSGPACK_MINOR_VERSION);
 }
-
 
 class TestClientWithPythonSimulator: public testing::Test {
 protected:
