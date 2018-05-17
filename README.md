@@ -7,9 +7,7 @@ Under development!
 
 ## Building and installing
 
-### zeromq
-
-Download and install zeromq
+Download and install [zeromq](http://zeromq.org/)
 ```sh
 wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.zip
 unzip zeromq-4.2.5.zip
@@ -22,9 +20,20 @@ make check  # optional
 sudo make install
 ```
 
-### msgpack
+Download and install [cppzmq](https://github.com/zeromq/cppzmq)
+```sh
+wget https://github.com/zeromq/cppzmq/archive/v4.2.2.zip
+unzip v4.2.2.zip
+cd cppzmq-4.2.2
 
-Download and install msgpack
+mkdir build
+cd build
+cmake ..
+sudo make install
+```
+
+
+Download and install [msgpack](https://msgpack.org/index.html)
 ```sh
 wget https://github.com/msgpack/msgpack-c/releases/download/cpp-2.1.5/msgpack-2.1.5.tar.gz
 tar -xzvf msgpack-2.1.5.tar.gz
@@ -37,6 +46,8 @@ sudo make install
 ## Usage
 
 ```c++
+import "kb_client.hpp"
+
 karabo_bridge::Client client;
 client.connect("tcp://localhost:1234")
 ```
