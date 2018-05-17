@@ -1,7 +1,5 @@
 #include "kb_client.hpp"
 
-#include <zmq.hpp>
-
 #include <string>
 #include <iostream>
 #include <sstream>
@@ -9,38 +7,33 @@
 #include <unistd.h>
 
 
+template <class T>
+void printContainer(const T& container) {
+    for (auto v : container) std::cout << v << " ";
+    std::cout << std::endl;
+}
+
+
 int main () {
-    //  Prepare our context and socket
-    zmq::context_t context (1);
-    zmq::socket_t socket (context, ZMQ_REP);
-    socket.bind ("tcp://*:1234");
+    karabo_bridge::Client client;
 
-    while (1) {
-        std::cout << "Waiting for request...\n";
-        zmq::message_t request;
-        //  Wait for next request from client
-        socket.recv(&request);
-        std::string req_str;
-        karabo_bridge::msg2str(request, req_str);
-        if (req_str != "next") {
-            std::cout << "Unknown request: " << req_str << std::endl;
-            continue;
-        }
+    client.connect("tcp://localhost:1234");
 
-        // Send a multipart message
+    client.showNext();
 
-        // strings
-        zmq::message_t tag_msg(17);
-        memcpy(tag_msg.data(), "multipart message", 17);
-        socket.send(tag_msg, ZMQ_SNDMORE);
+    auto result = client.next();
 
-        // array
-        std::array<int, 5> arr {1, 2, 3, 4, 5};
-        msgpack::sbuffer sbuf;
-        msgpack::pack(sbuf, arr);
+    assert(result.metadata["source"].as<std::string>() == "SPB_DET_AGIPD1M-1/DET/detector");
 
-        zmq::message_t data_msg(sbuf.size());
-        memcpy(data_msg.data(), sbuf.data(), sbuf.size());
-        socket.send(data_msg, 0);
-    }
+    std::cout << "timestamp.tid: " << result.metadata["timestamp.tid"].as<uint64_t>() << "\n";
+    std::cout << "timestamp.sec: " << result.metadata["timestamp.sec"].as<std::string>() << "\n";
+    std::cout << "timestamp.frac: " << result.metadata["timestamp.frac"].as<std::string>() << "\n";
+
+    assert(result["header.pulseCount"].as<uint64_t>() == 32);
+    assert(result["trailer.status"].as<uint64_t>() == 0);
+    assert(result["header.majorTrainFormatVersion"].as<uint64_t>() == 2);
+    assert(result["header.minorTrainFormatVersion"].as<uint64_t>() == 1);
+
+    auto train_id = result["image.trainId"].asArray<uint64_t, 32>();
+    printContainer(train_id);
 }

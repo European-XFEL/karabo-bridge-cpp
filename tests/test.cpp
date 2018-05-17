@@ -50,39 +50,6 @@ TEST(parseMultipartMsgTest, multipartMessage) {
               "\"European XFEL\"\n\"is\"\n\"magnificent!\"\n");
 }
 
-class TestClientWithPythonSimulator: public testing::Test {
-protected:
-    karabo_bridge::Client client_;
-
-    virtual void SetUp() override {
-        client_.connect("tcp://localhost:1234");
-    }
-};
-
-TEST_F(TestClientWithPythonSimulator, showNext) {
-    client_.showNext();
-}
-
-TEST_F(TestClientWithPythonSimulator, Next) {
-    auto result = client_.next();
-
-    EXPECT_EQ(result.metadata["source"].as<std::string>(), "SPB_DET_AGIPD1M-1/DET/detector");
-    std::cout << "timestamp.tid: " << result.metadata["timestamp.tid"].as<uint64_t>() << "\n";
-    std::cout << "timestamp.sec: " << result.metadata["timestamp.sec"].as<std::string>() << "\n";
-    std::cout << "timestamp.frac: " << result.metadata["timestamp.frac"].as<std::string>() << "\n";
-
-    EXPECT_EQ(result["header.pulseCount"].as<uint64_t>(), 32);
-    EXPECT_EQ(result["trailer.status"].as<uint64_t>(), 0);
-    EXPECT_EQ(result["header.majorTrainFormatVersion"].as<uint64_t>(), 2);
-    EXPECT_EQ(result["header.minorTrainFormatVersion"].as<uint64_t>(), 1);
-    EXPECT_THROW(result["header"], std::out_of_range);
-
-    auto train_id = result["image.trainId"].asArray<uint64_t, 32>();
-    EXPECT_EQ(std::adjacent_find(train_id.begin(), train_id.end(), std::not_equal_to<int>()),
-              train_id.end());
-    EXPECT_GT(train_id[0], 10000000000);
-}
-
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
