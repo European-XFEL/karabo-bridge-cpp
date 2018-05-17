@@ -80,8 +80,6 @@ struct object {
     std::array<T, N> asArray() {
         std::array<T, N> result;
 
-        if (N != size_) throw std::invalid_argument("Inconsistent array size!");
-
         auto tmp = value_.as<std::array<char, sizeof(T)*N>>();
         std::memcpy(&result, &tmp, sizeof(T)*N);
         return result;
@@ -91,12 +89,8 @@ struct object {
 
     uint16_t type() const { return value_.type; }
 
-    void setSize(std::size_t s) { size_ = s; }
-
 private:
     msgpack::object value_;
-    MSGPACK_DEFINE(value_);
-    std::size_t size_ = 1;
 };
 
 } // karabo_bridge
@@ -252,8 +246,7 @@ inline void msg2str(zmq::message_t& msg, std::string& str) {
  * Data structure presented to the user.
  */
 struct data {
-    std::string source;
-    std::map<std::string, object> timestamp;
+    std::map<std::string, object> metadata;
     std::map<std::string, object> data_;
 
     /*
@@ -322,7 +315,6 @@ class Client {
             socket_.getsockopt(ZMQ_RCVMORE, &more, &more_size);
             if (more == 0) break;
         }
-
         return mpmsg;
     }
 
@@ -344,58 +336,53 @@ public:
         sendRequest();
 
         multipart_msg mpmsg = receiveMultipartMsg();
+        if (mpmsg.empty()) throw std::out_of_range("Empty multipart message!");
 
-        msgpack::object_handle oh;
-        msgpack::unpack(oh, static_cast<const char*>(mpmsg[0].data()), mpmsg[0].size());
-        auto root_unpacked = oh.get().as<MsgObjectMap>();
-        assert(root_unpacked.size() == 1);
+        // deal with the first message
+        msgpack::object_handle oh_root;
+        msgpack::unpack(oh_root, static_cast<const char*>(mpmsg[0].data()), mpmsg[0].size());
+        auto root_unpacked = oh_root.get().as<MsgObjectMap>();
+        std::string source = root_unpacked.at("source").as<std::string>();
 
-        for (auto &v : root_unpacked) {
-            kbdt.source = v.first;
+        auto dt_content = root_unpacked.at("content").as<std::string>();
+        if (dt_content != "msgpack")
+            throw std::runtime_error("Unknown data content!" + dt_content);
 
-            auto data_unpacked = v.second.as<MsgObjectMap>();
-            for (auto &v : data_unpacked) {
-                // hard code for "metadata"
-                if (v.first == "metadata") {
-                    auto unpacked_metadata = v.second.as<MsgObjectMap>();
-                    for (auto &v : unpacked_metadata) {
-                        if (v.first == "source")
-                            assert(v.second.as<std::string>() == kbdt.source);
-                        else if (v.first == "timestamp") {
-                            auto unpacked_timestamp = v.second.as<MsgObjectMap>();
-                            for (auto &v : unpacked_timestamp) {
-                                kbdt.timestamp.insert(std::make_pair(v.first,
-                                                                     v.second.as<object>()));
-                            }
-                        } else throw;
-                    }
-                // parse other data
+        for (auto it = mpmsg.begin() + 1; it != mpmsg.end(); ++it) {
+            msgpack::object_handle oh;
+            msgpack::unpack(oh, static_cast<const char*>(it->data()), it->size());
+            auto data_unpacked = oh.get().as<MsgObjectMap>();
+
+            for (auto &dt : data_unpacked) {
+                // "array" data
+                if (dt.first == "dtype" || dt.first == "content" ||
+                    dt.first == "shape" || dt.first == "source" ||
+                    dt.first == "path") {
+                    auto dt_content = data_unpacked.at("content").as<std::string>();
+                    if (dt_content != "array")
+                        throw std::runtime_error("Unknown data content: " + dt_content);
+                    if (data_unpacked.at("source").as<std::string>() != source)
+                        throw std::runtime_error("Inconsistent data source!");
+
+                    std::advance(it, 1);
+                    msgpack::zone zone;
+                    msgpack::object obj(msgpack::type::raw_ref(static_cast<const char*>(it->data()), it->size()), zone);
+                    kbdt.data_.insert(std::make_pair(data_unpacked.at("path").as<std::string>(),
+                                                     obj.as<object>()));
+                    break;
+
+                // "metadata" has another level of dictionary
                 } else {
-                    // unpack array data wrapped in a map
-                    if (v.second.type == msgpack::type::MAP) {
-                        auto unpacked_nparray = v.second.as<MsgObjectMap>();
-                        try {
-                            // keep only "data", discard descriptions.
-                            auto obj = unpacked_nparray.at("data").as<object>();
-
-                            auto shape = unpacked_nparray.at("shape").as<std::vector<std::size_t>>();
-                            std::size_t size = 1;
-                            auto max_size = std::numeric_limits<unsigned long long>::max();
-                            for (auto v : shape) {
-                                if (max_size/size < v)
-                                    throw std::overflow_error("Unmanagable array size!");
-                                size *= v;
-                            }
-
-                            obj.setSize(size);
-
-                            kbdt.data_.insert(std::make_pair(v.first, std::move(obj)));
-                        } catch (const std::out_of_range& e) {
-                            std::cout << "Unknown data structure!\n";
-                            std::cerr << e.what();
+                    if (dt.first == "metadata") {
+                        auto unpacked_timestamp = dt.second.as<MsgObjectMap>();
+                        for (auto &v : unpacked_timestamp) {
+                            kbdt.metadata.insert(std::make_pair(v.first,
+                                                                v.second.as<object>()));
                         }
+                    } else {
+                        // normal data represented by the key-value pair
+                        kbdt.data_.insert(std::make_pair(dt.first, dt.second.as<object>()));
                     }
-                    else kbdt.data_.insert(std::make_pair(v.first, v.second.as<object>()));
                 }
             }
         }
