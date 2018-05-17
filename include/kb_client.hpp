@@ -17,6 +17,7 @@
 #include <string>
 #include <stack>
 #include <array>
+#include <deque>
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -130,6 +131,7 @@ struct karabo_visitor {
     bool m_ref;
 
     explicit karabo_visitor(std::string& s):m_s(s), m_ref(false) {}
+    ~karabo_visitor() { m_s += "\n"; }
 
     bool visit_nil() {
         m_s += "null";
@@ -200,6 +202,7 @@ struct karabo_visitor {
     bool start_map_key() {
         is_key_ = true;
         m_s += "\n";
+
         for (int i=0; i< tracker_.top(); ++i) m_s += "    ";
         return true;
     }
@@ -236,7 +239,6 @@ private:
     std::stack<int> tracker_;
     uint16_t level_ = 0;
     bool is_key_ = false;
-    bool in_array_ = false;
 };
 
 /*
@@ -263,6 +265,33 @@ struct data {
     }
 };
 
+using multipart_msg = std::deque<zmq::message_t>;
+
+/*
+ * Parse a single message packed by msgpack.
+ */
+std::string parseMsg(const zmq::message_t& msg) {
+    std::string data_str;
+    karabo_visitor visitor(data_str);
+    bool ret = msgpack::v2::parse(static_cast<const char*>(msg.data()), msg.size(), visitor);
+    assert(ret);
+    return data_str;
+}
+
+/*
+ * Parse a multipart message packed by msgpack.
+ */
+std::string parseMultipartMsg(const multipart_msg& mpmsg, bool boundary=true) {
+    std::string output;
+    std::string separator("\n----------new message----------\n");
+    for (auto& msg : mpmsg) {
+        if (boundary) output.append(separator);
+        output.append(parseMsg(msg));
+    }
+    return output;
+}
+
+
 /*
  * Karabo-bridge Client class.
  */
@@ -273,7 +302,7 @@ class Client {
     /*
      * Send a "next" request to server.
      */
-    void send_request() {
+    void sendRequest() {
         zmq::message_t request(4);
         memcpy(request.data(), "next", request.size());
         socket_.send(request);
@@ -282,17 +311,19 @@ class Client {
     /*
      * Receive a multipart message from the server.
      */
-    zmq::message_t receive_multipart_msg() {
-        zmq::message_t msg;
+    multipart_msg receiveMultipartMsg() {
         int64_t more;  // multipart checker
+        multipart_msg mpmsg;
         while (true) {
+            zmq::message_t msg;
             socket_.recv(&msg);
+            mpmsg.emplace_back(std::move(msg));
             std::size_t more_size = sizeof(int64_t);
             socket_.getsockopt(ZMQ_RCVMORE, &more, &more_size);
             if (more == 0) break;
         }
 
-        return msg;
+        return mpmsg;
     }
 
 public:
@@ -308,15 +339,15 @@ public:
      */
     data next() {
         using MsgObjectMap = std::map<std::string, msgpack::object>;
-
         data kbdt;
 
-        send_request();
-        auto msg = receive_multipart_msg();
+        sendRequest();
 
-        msgpack::object_handle result;
-        msgpack::unpack(result, static_cast<const char*>(msg.data()), msg.size());
-        auto root_unpacked = result.get().as<MsgObjectMap>();
+        multipart_msg mpmsg = receiveMultipartMsg();
+
+        msgpack::object_handle oh;
+        msgpack::unpack(oh, static_cast<const char*>(mpmsg[0].data()), mpmsg[0].size());
+        auto root_unpacked = oh.get().as<MsgObjectMap>();
         assert(root_unpacked.size() == 1);
 
         for (auto &v : root_unpacked) {
@@ -377,17 +408,12 @@ public:
      *
      * Note:: this function consumes data!!!
      */
-    void showNext() {
-        send_request();
-        auto msg = receive_multipart_msg();
+    void showNext(const std::string& fname="data_structure_from_server.txt") {
+        sendRequest();
+        auto mpmsg = receiveMultipartMsg();
 
-        // For now, we put the unpacked data into a string
-        std::string data_str;
-        karabo_visitor visitor(data_str);
-        bool ret = msgpack::v2::parse(static_cast<const char*>(msg.data()), msg.size(), visitor);
-        assert(ret);
-        std::ofstream out("data_structure_from_server.txt");
-        out << data_str;
+        std::ofstream out(fname);
+        out << parseMultipartMsg(mpmsg);
         out.close();
     }
 };
