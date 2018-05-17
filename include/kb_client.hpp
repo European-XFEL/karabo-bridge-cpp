@@ -261,18 +261,18 @@ struct data {
 using multipart_msg = std::deque<zmq::message_t>;
 
 /*
- * Parse a single message packed by msgpack.
+ * Parse a single message packed by msgpack using "visitor".
  */
 std::string parseMsg(const zmq::message_t& msg) {
     std::string data_str;
     karabo_visitor visitor(data_str);
-    bool ret = msgpack::v2::parse(static_cast<const char*>(msg.data()), msg.size(), visitor);
+    bool ret = msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), visitor);
     assert(ret);
     return data_str;
 }
 
 /*
- * Parse a multipart message packed by msgpack.
+ * Parse a multipart message packed by msgpack using "visitor".
  */
 std::string parseMultipartMsg(const multipart_msg& mpmsg, bool boundary=true) {
     std::string output;
@@ -334,9 +334,8 @@ public:
         data kbdt;
 
         sendRequest();
-
         multipart_msg mpmsg = receiveMultipartMsg();
-        if (mpmsg.empty()) throw std::out_of_range("Empty multipart message!");
+        if (mpmsg.empty()) return kbdt;
 
         // deal with the first message
         msgpack::object_handle oh_root;
@@ -344,8 +343,7 @@ public:
         auto root_unpacked = oh_root.get().as<MsgObjectMap>();
         std::string source = root_unpacked.at("source").as<std::string>();
 
-        auto dt_content = root_unpacked.at("content").as<std::string>();
-        if (dt_content != "msgpack")
+        if (auto dt_content = root_unpacked.at("content").as<std::string>() != "msgpack")
             throw std::runtime_error("Unknown data content!" + dt_content);
 
         for (auto it = mpmsg.begin() + 1; it != mpmsg.end(); ++it) {
@@ -353,36 +351,33 @@ public:
             msgpack::unpack(oh, static_cast<const char*>(it->data()), it->size());
             auto data_unpacked = oh.get().as<MsgObjectMap>();
 
-            for (auto &dt : data_unpacked) {
-                // "array" data
-                if (dt.first == "dtype" || dt.first == "content" ||
-                    dt.first == "shape" || dt.first == "source" ||
-                    dt.first == "path") {
-                    auto dt_content = data_unpacked.at("content").as<std::string>();
-                    if (dt_content != "array")
-                        throw std::runtime_error("Unknown data content: " + dt_content);
-                    if (data_unpacked.at("source").as<std::string>() != source)
-                        throw std::runtime_error("Inconsistent data source!");
+            if (data_unpacked.find("content") != data_unpacked.end()) {
+                if (data_unpacked.at("source").as<std::string>() != source)
+                    throw std::runtime_error("Inconsistent data source!");
 
+                auto content = data_unpacked["content"].as<std::string>();
+                if (content == "array") {
                     std::advance(it, 1);
                     msgpack::zone zone;
-                    msgpack::object obj(msgpack::type::raw_ref(static_cast<const char*>(it->data()), it->size()), zone);
+                    msgpack::object obj(msgpack::type::raw_ref(static_cast<const char*>(it->data()),
+                                                               it->size()),
+                                        zone);
                     kbdt.data_.insert(std::make_pair(data_unpacked.at("path").as<std::string>(),
                                                      obj.as<object>()));
-                    break;
+                } else if (content == "ImageData") {
+                    throw std::runtime_error("ImageData unimplemented: " + content);
+                }
+                else
+                    throw std::runtime_error("Unknown data content: " + content);
 
-                // "metadata" has another level of dictionary
-                } else {
-                    if (dt.first == "metadata") {
+            } else {
+                for (auto &dt : data_unpacked) {
+                    if (dt.first == "metadata") { // "metadata" has another level of dictionary
                         auto unpacked_timestamp = dt.second.as<MsgObjectMap>();
-                        for (auto &v : unpacked_timestamp) {
-                            kbdt.metadata.insert(std::make_pair(v.first,
-                                                                v.second.as<object>()));
-                        }
-                    } else {
-                        // normal data represented by the key-value pair
+                        for (auto &v : unpacked_timestamp)
+                            kbdt.metadata.insert(std::make_pair(v.first, v.second.as<object>()));
+                    } else // normal data represented by the key-value pair
                         kbdt.data_.insert(std::make_pair(dt.first, dt.second.as<object>()));
-                    }
                 }
             }
         }
