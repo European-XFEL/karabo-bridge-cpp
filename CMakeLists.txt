@@ -12,8 +12,8 @@ include_directories(${ZeroMQ_INCLUDE_DIR} ${cppzmq_INCLUDE_DIR})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_executable(server src/server_simulator.cpp include/kb_client.hpp)
-target_link_libraries(server ${cppzmq_LIBRARY})
+add_executable(run src/run_client.cpp include/kb_client.hpp)
+target_link_libraries(run ${cppzmq_LIBRARY})
 
 enable_testing()
 add_subdirectory(tests)

@@ -1,10 +1,6 @@
 #include "kb_client.hpp"
 
-#include <string>
 #include <iostream>
-#include <sstream>
-#include <array>
-#include <unistd.h>
 
 
 template <class T>
@@ -14,10 +10,13 @@ void printContainer(const T& container) {
 }
 
 
-int main () {
+int main (int argc, char* argv[]) {
+    std::string port = "1234";
+    if (argc >= 2) port = argv[1];
+
     karabo_bridge::Client client;
 
-    client.connect("tcp://localhost:1234");
+    client.connect("tcp://localhost:" + port);
 
     client.showNext();
 
