@@ -11,6 +11,8 @@
 using ::testing::UnorderedElementsAre;
 using ::testing::ElementsAre;
 
+static int ZMQ_MAJOR_VERSION = 4;
+static int ZMQ_MINOR_VERSION = 1;
 static int MSGPACK_MAJOR_VERSION = 2;
 static int MSGPACK_MINOR_VERSION = 1;
 
@@ -18,8 +20,8 @@ static int MSGPACK_MINOR_VERSION = 1;
 TEST(ZMQTest, Version) {
     int major, minor, patch;
     zmq_version (&major, &minor, &patch);
-    ASSERT_GE(major, 4);
-    ASSERT_GE(minor, 2);
+    ASSERT_GE(major, ZMQ_MAJOR_VERSION);
+    ASSERT_GE(minor, ZMQ_MINOR_VERSION);
 }
 
 TEST(MsgpackTest, Version) {
