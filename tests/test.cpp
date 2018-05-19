@@ -34,7 +34,7 @@ TEST(MsgpackTest, Version) {
 }
 
 TEST(parseMultipartMsgTest, multipartMessage) {
-    karabo_bridge::multipart_msg mpmsg;
+    karabo_bridge::MultipartMsg mpmsg;
 
     std::stringstream ss;
     msgpack::pack(ss, "European XFEL");

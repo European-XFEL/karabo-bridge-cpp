@@ -28,7 +28,7 @@
 namespace karabo_bridge {
 
 /*
- * A proxy object for deferred unpack.
+ * A container hold a msgpack::object for deferred unpack.
  *
  * typedef enum {
         MSGPACK_OBJECT_NIL                  = 0x00,
@@ -45,16 +45,25 @@ namespace karabo_bridge {
         MSGPACK_OBJECT_EXT                  = 0x09
    } msgpack_object_type;
  */
-struct object {
-    object() = default;  // must be default constructable
-    explicit object(const msgpack::object& value): value_(value) {}
+class Object {
+
+protected:
+    msgpack::object value_;
+
+public:
+    Object() = default;  // must be default constructable
+
+    explicit Object(const msgpack::object& value): value_(value) {}
+
+    virtual ~Object() = default;
 
     // copy is not allowed
-    object(const object&) = delete;
-    object& operator=(const object&) = delete;
+    Object(const Object&) = delete;
+    Object& operator=(const Object&) = delete;
 
-    object(object&&) noexcept = default;
-    object& operator=(object&&) noexcept = default;
+    Object(Object&&) noexcept = default;
+    Object& operator=(Object&&) noexcept = default;
+
     /*
      * Cast the held msgpack::object to a given type.
      *
@@ -62,35 +71,70 @@ struct object {
      * std::bad_cast if the cast fails.
      */
     template<typename T>
-    T as() { return value_.as<T>(); }
+    T as() {
+        return value_.as<T>();
+    }
+
+    msgpack::object get() const { return value_; }
+
+    int type() const { return value_.type; }
+};
+
+/*
+ * A container held a pointer to the data array and other information.
+ */
+class ObjectBin {
+    const char* ptr_; // pointer to the 1D data array
+    std::vector<int> shape_; // shape of the array
+    std::string dtype_; // data type
+
+    std::size_t size() const {
+        auto max_size = std::numeric_limits<unsigned long long>::max();
+
+        std::size_t size = 1;
+        for (auto v : shape_) {
+            if (max_size/size < v)
+                throw std::overflow_error("Unmanageable array size!");
+            size *= v;
+        }
+
+        return size;
+    }
+public:
+    ObjectBin() = default;
+
+    // shape and dtype should be moved into the constructor
+    ObjectBin(const char* ptr, std::vector<int> shape, std::string dtype):
+        ptr_(ptr),
+        shape_(std::move(shape)),
+        dtype_(std::move(dtype)) {}
+
+    // copy is not allowed
+    ObjectBin(const ObjectBin&) = delete;
+    ObjectBin& operator=(const ObjectBin&) = delete;
+
+    ObjectBin(ObjectBin&&) noexcept = default;
+    ObjectBin& operator=(ObjectBin&&) noexcept = default;
 
     /*
-     * Cast the held msgpack::object::BIN object to a 1D std::array.
+     * Cast the held const char* array to std::vector<T>.
      *
-     * Parameters:
-     * N: size of the output std::array.
-     *
-     * Note: users are responsible to give the correct data type and size,
+     * Note: users are responsible to give the correct data type
      *       otherwise it leads to undefined behavior.
      *
      * Exceptions:
      * std::bad_cast if the cast fails.
      */
-    template<typename T, std::size_t N>
-    std::array<T, N> asArray() {
-        std::array<T, N> result;
-
-        auto tmp = value_.as<std::array<char, sizeof(T)*N>>();
-        std::memcpy(&result, &tmp, sizeof(T)*N);
-        return result;
+    template<typename T>
+    std::vector<T> as() {
+        auto ptr = reinterpret_cast<const T*>(ptr_);
+        // TODO: avoid the copy
+        return std::vector<T>(ptr, ptr + size());
     }
 
-    msgpack::object get() const { return value_; }
+    std::vector<int> shape() const { return shape_; }
 
-    uint16_t type() const { return value_.type; }
-
-private:
-    msgpack::object value_;
+    std::string dtype() const { return dtype_; }
 };
 
 } // karabo_bridge
@@ -104,9 +148,9 @@ namespace adaptor{
  * template specialization for karabo_bridge::object
  */
 template<>
-struct as<karabo_bridge::object> {
-    karabo_bridge::object operator()(msgpack::object const& o) const {
-        return karabo_bridge::object(o.as<msgpack::object>());
+struct as<karabo_bridge::Object> {
+    karabo_bridge::Object operator()(msgpack::object const& o) const {
+        return karabo_bridge::Object(o.as<msgpack::object>());
     }
 };
 
@@ -235,30 +279,16 @@ private:
     bool is_key_ = false;
 };
 
-/*
- * Helper function: convert a message to string.
- */
-inline void msg2str(zmq::message_t& msg, std::string& str) {
-    str = std::string(static_cast<const char *>(msg.data()), msg.size());
-}
 
 /*
  * Data structure presented to the user.
  */
-struct data {
-    std::map<std::string, object> metadata;
-    std::map<std::string, object> data_;
-
-    /*
-     * Exceptions:
-     * std::out_of_range if key is invalid.
-     */
-    object& operator[](std::string key) {
-        return data_.at(key);
-    }
+struct kb_data {
+    std::map<std::string, Object> data;
+    std::map<std::string, ObjectBin> data_bin;
 };
 
-using multipart_msg = std::deque<zmq::message_t>;
+using MultipartMsg = std::deque<zmq::message_t>;
 
 /*
  * Parse a single message packed by msgpack using "visitor".
@@ -274,7 +304,7 @@ std::string parseMsg(const zmq::message_t& msg) {
 /*
  * Parse a multipart message packed by msgpack using "visitor".
  */
-std::string parseMultipartMsg(const multipart_msg& mpmsg, bool boundary=true) {
+std::string parseMultipartMsg(const MultipartMsg& mpmsg, bool boundary=true) {
     std::string output;
     std::string separator("\n----------new message----------\n");
     for (auto& msg : mpmsg) {
@@ -304,9 +334,9 @@ class Client {
     /*
      * Receive a multipart message from the server.
      */
-    multipart_msg receiveMultipartMsg() {
+    MultipartMsg receiveMultipartMsg() {
         int64_t more;  // multipart checker
-        multipart_msg mpmsg;
+        MultipartMsg mpmsg;
         while (true) {
             zmq::message_t msg;
             socket_.recv(&msg);
@@ -329,12 +359,13 @@ public:
     /*
      * Request and return the next data from the server.
      */
-    data next() {
+    kb_data next() {
         using MsgObjectMap = std::map<std::string, msgpack::object>;
-        data kbdt;
+
+        kb_data kbdt;
 
         sendRequest();
-        multipart_msg mpmsg = receiveMultipartMsg();
+        MultipartMsg mpmsg = receiveMultipartMsg();
         if (mpmsg.empty()) return kbdt;
 
         // deal with the first message
@@ -356,28 +387,22 @@ public:
                     throw std::runtime_error("Inconsistent data source!");
 
                 auto content = data_unpacked["content"].as<std::string>();
-                if (content == "array") {
+                if (content == "array" || content == "ImageData") {
+                    auto shape = data_unpacked["shape"].as<std::vector<int>>();
+                    auto dtype = data_unpacked["dtype"].as<std::string>();
+
                     std::advance(it, 1);
-                    msgpack::zone zone;
-                    msgpack::object obj(msgpack::type::raw_ref(static_cast<const char*>(it->data()),
-                                                               it->size()),
-                                        zone);
-                    kbdt.data_.insert(std::make_pair(data_unpacked.at("path").as<std::string>(),
-                                                     obj.as<object>()));
-                } else if (content == "ImageData") {
-                    throw std::runtime_error("ImageData unimplemented: " + content);
-                }
-                else
+                    kbdt.data_bin.insert(std::make_pair(
+                        data_unpacked.at("path").as<std::string>(),
+                        ObjectBin(static_cast<const char*>(it->data()),
+                                                           std::move(shape),
+                                                           std::move(dtype))));
+                } else
                     throw std::runtime_error("Unknown data content: " + content);
 
             } else {
                 for (auto &dt : data_unpacked) {
-                    if (dt.first == "metadata") { // "metadata" has another level of dictionary
-                        auto unpacked_timestamp = dt.second.as<MsgObjectMap>();
-                        for (auto &v : unpacked_timestamp)
-                            kbdt.metadata.insert(std::make_pair(v.first, v.second.as<object>()));
-                    } else // normal data represented by the key-value pair
-                        kbdt.data_.insert(std::make_pair(dt.first, dt.second.as<object>()));
+                    kbdt.data.insert(std::make_pair(dt.first, dt.second.as<Object>()));
                 }
             }
         }
@@ -386,11 +411,11 @@ public:
     }
 
     /*
-     * Parse the structure of the next coming data and save it to a file.
+     * Parse the next multipart message and save the result to a file.
      *
      * Note:: this function consumes data!!!
      */
-    void showNext(const std::string& fname="data_structure_from_server.txt") {
+    void showNext(const std::string& fname="multipart_message_structure.txt") {
         sendRequest();
         auto mpmsg = receiveMultipartMsg();
 

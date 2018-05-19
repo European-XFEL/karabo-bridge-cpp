@@ -1,6 +1,7 @@
 #include "kb_client.hpp"
 
 #include <iostream>
+#include <chrono>
 
 
 template <class T>
@@ -20,19 +21,31 @@ int main (int argc, char* argv[]) {
 
     client.showNext();
 
-    auto result = client.next();
+    auto start = std::chrono::high_resolution_clock::now();
 
-    assert(result.metadata["source"].as<std::string>() == "SPB_DET_AGIPD1M-1/DET/detector");
+    auto data = client.next();
 
-    std::cout << "timestamp.tid: " << result.metadata["timestamp.tid"].as<uint64_t>() << "\n";
-    std::cout << "timestamp.sec: " << result.metadata["timestamp.sec"].as<std::string>() << "\n";
-    std::cout << "timestamp.frac: " << result.metadata["timestamp.frac"].as<std::string>() << "\n";
+    assert(data.data["header.pulseCount"].as<uint64_t>() == 32);
+    assert(data.data["trailer.status"].as<uint64_t>() == 0);
+    assert(data.data["header.majorTrainFormatVersion"].as<uint64_t>() == 2);
+    assert(data.data["header.minorTrainFormatVersion"].as<uint64_t>() == 1);
 
-    assert(result["header.pulseCount"].as<uint64_t>() == 32);
-    assert(result["trailer.status"].as<uint64_t>() == 0);
-    assert(result["header.majorTrainFormatVersion"].as<uint64_t>() == 2);
-    assert(result["header.minorTrainFormatVersion"].as<uint64_t>() == 1);
+    assert(data.data_bin["image.trainId"].dtype() == "uint64");
+    assert(data.data_bin["image.trainId"].shape() == std::vector<int>{32});
+    auto train_id = data.data_bin["image.trainId"].as<uint64_t>();
+    for (auto v : train_id) assert(v >= 10000000000);
+    assert(train_id.size() == 32);
 
-    auto train_id = result["image.trainId"].asArray<uint64_t, 32>();
-    printContainer(train_id);
+    assert(data.data_bin["detector.data"].dtype() == "uint8");
+    assert(data.data_bin["detector.data"].shape() == std::vector<int>{416});
+    auto dt_data = data.data_bin["detector.data"].as<uint8_t>();
+    for (auto v : dt_data) assert(static_cast<int>(v) == 1);
+    assert(dt_data.size() == 416);
+
+    std::cout << "Passed!" << std::endl;
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "Execution time: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+              << " ms" << std::endl;
 }
