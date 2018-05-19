@@ -284,8 +284,12 @@ private:
  * Data structure presented to the user.
  */
 struct kb_data {
-    std::map<std::string, Object> data;
-    std::map<std::string, ObjectBin> data_bin;
+    std::map<std::string, Object> msgpack_data;
+    std::map<std::string, ObjectBin> data;
+
+    Object& operator[](const std::string& key) {
+        return msgpack_data.at(key);
+    }
 };
 
 using MultipartMsg = std::deque<zmq::message_t>;
@@ -386,13 +390,13 @@ public:
                 if (data_unpacked.at("source").as<std::string>() != source)
                     throw std::runtime_error("Inconsistent data source!");
 
-                auto content = data_unpacked["content"].as<std::string>();
+                auto content = data_unpacked.at("content").as<std::string>();
                 if (content == "array" || content == "ImageData") {
-                    auto shape = data_unpacked["shape"].as<std::vector<int>>();
-                    auto dtype = data_unpacked["dtype"].as<std::string>();
+                    auto shape = data_unpacked.at("shape").as<std::vector<int>>();
+                    auto dtype = data_unpacked.at("dtype").as<std::string>();
 
                     std::advance(it, 1);
-                    kbdt.data_bin.insert(std::make_pair(
+                    kbdt.data.insert(std::make_pair(
                         data_unpacked.at("path").as<std::string>(),
                         ObjectBin(static_cast<const char*>(it->data()),
                                                            std::move(shape),
@@ -402,7 +406,7 @@ public:
 
             } else {
                 for (auto &dt : data_unpacked) {
-                    kbdt.data.insert(std::make_pair(dt.first, dt.second.as<Object>()));
+                    kbdt.msgpack_data.insert(std::make_pair(dt.first, dt.second.as<Object>()));
                 }
             }
         }
