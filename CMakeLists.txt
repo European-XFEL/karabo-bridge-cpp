@@ -8,6 +8,7 @@ find_package(Threads REQUIRED)
 find_package(msgpack 2.1 REQUIRED)
 
 find_package(cppzmq 4.2 REQUIRED)
+find_package(ZeroMQ 4.2 REQUIRED)
 include_directories(${ZeroMQ_INCLUDE_DIR} ${cppzmq_INCLUDE_DIR})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
