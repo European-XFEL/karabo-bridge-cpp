@@ -83,22 +83,22 @@ In the file, you will see something like
 ```
 #### next()
 
-Use `next()` member function to return a `karabo_bridge::data` object
+Use `next()` member function to return a `karabo_bridge::kb_data` object
 ```c++
 struct kb_data {
     std::map<std::string, Object> msgpack_data;
-    std::map<std::string, ObjectBin> data;
+    std::map<std::string, Array> array;
     ...
 };
 
 karabo_bridge::data result = client.next();
 ```
-You can visit the data by
+You can visit the data members by
 ```c++
 // Access directly the data member `msgpack_data` 
 auto pulseCount = result["header.pulseCount"].as<uint64_t>()
 
-// Access the data member `data` which is the "array" or "ImageData" represented by char arrays
+// Access the data member `array` which is the "array" or "ImageData" represented by char arrays
 // Note:: you are responsible to give the correct data type, otherwise it leads to undefined behavior!
-std::vector<uint64_t> train_id = result.data["image.trainId"].as<uint64_t>()
+std::vector<uint64_t> train_id = result.array["image.trainId"].as<uint64_t>()
 ```

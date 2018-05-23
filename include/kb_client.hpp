@@ -83,7 +83,7 @@ public:
 /*
  * A container held a pointer to the data array and other information.
  */
-class ObjectBin {
+class Array {
     const char* ptr_; // pointer to the 1D data array
     std::vector<int> shape_; // shape of the array
     std::string dtype_; // data type
@@ -101,20 +101,20 @@ class ObjectBin {
         return size;
     }
 public:
-    ObjectBin() = default;
+    Array() = default;
 
     // shape and dtype should be moved into the constructor
-    ObjectBin(const char* ptr, std::vector<int> shape, std::string dtype):
+    Array(const char* ptr, std::vector<int> shape, std::string dtype):
         ptr_(ptr),
         shape_(std::move(shape)),
         dtype_(std::move(dtype)) {}
 
     // copy is not allowed
-    ObjectBin(const ObjectBin&) = delete;
-    ObjectBin& operator=(const ObjectBin&) = delete;
+    Array(const Array&) = delete;
+    Array& operator=(const Array&) = delete;
 
-    ObjectBin(ObjectBin&&) noexcept = default;
-    ObjectBin& operator=(ObjectBin&&) noexcept = default;
+    Array(Array&&) noexcept = default;
+    Array& operator=(Array&&) noexcept = default;
 
     /*
      * Cast the held const char* array to std::vector<T>.
@@ -285,7 +285,7 @@ private:
  */
 struct kb_data {
     std::map<std::string, Object> msgpack_data;
-    std::map<std::string, ObjectBin> data;
+    std::map<std::string, Array> array;
 
     Object& operator[](const std::string& key) {
         return msgpack_data.at(key);
@@ -396,11 +396,11 @@ public:
                     auto dtype = data_unpacked.at("dtype").as<std::string>();
 
                     std::advance(it, 1);
-                    kbdt.data.insert(std::make_pair(
+                    kbdt.array.insert(std::make_pair(
                         data_unpacked.at("path").as<std::string>(),
-                        ObjectBin(static_cast<const char*>(it->data()),
-                                                           std::move(shape),
-                                                           std::move(dtype))));
+                        Array(static_cast<const char*>(it->data()),
+                                                       std::move(shape),
+                                                       std::move(dtype))));
                 } else
                     throw std::runtime_error("Unknown data content: " + content);
 

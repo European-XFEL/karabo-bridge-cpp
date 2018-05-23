@@ -31,9 +31,11 @@ int main (int argc, char* argv[]) {
     assert(data["data.image.dimensions"].as<std::vector<uint64_t>>() == std::vector<uint64_t>({1024, 1024}));
     assert(data["metadata.timestamp.tid"].as<std::uint64_t>() == 0);
 
-    assert(data.data["data.image.data"].dtype() == "uint32");
-    assert(data.data["data.image.data"].shape() == std::vector<int>({1024, 1024}));
-    auto image_data = data.data["data.image.data"].as<uint32_t>();
+    assert(data.array["data.image.data"].dtype() == "uint32");
+    assert(data.array["data.image.data"].shape() == std::vector<int>({1024, 1024}));
+    auto image_data = data.array["data.image.data"].as<uint32_t>();
+    assert(image_data.size() == 1024*1024);
+    for (auto v : image_data) assert(v >= 0 && v <= 1e6);
 
     std::cout << "Passed!" << std::endl;
 
