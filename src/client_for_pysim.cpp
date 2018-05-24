@@ -19,6 +19,7 @@ int main (int argc, char* argv[]) {
 
     client.connect("tcp://localhost:" + port);
 
+    client.showMsg();
     client.showNext();
 
     auto start = std::chrono::high_resolution_clock::now();

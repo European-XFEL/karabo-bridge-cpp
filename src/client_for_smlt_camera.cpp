@@ -20,6 +20,7 @@ int main (int argc, char* argv[]) {
 
     client.connect("tcp://localhost:" + port);
 
+    client.showMsg();
     client.showNext();
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -35,7 +36,7 @@ int main (int argc, char* argv[]) {
     assert(data.array["data.image.data"].shape() == std::vector<int>({1024, 1024}));
     auto image_data = data.array["data.image.data"].as<uint32_t>();
     assert(image_data.size() == 1024*1024);
-    for (auto v : image_data) assert(v >= 0 && v <= 1e6);
+    for (auto v : image_data) assert(v >= 0);
 
     std::cout << "Passed!" << std::endl;
 

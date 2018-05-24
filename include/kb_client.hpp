@@ -28,22 +28,31 @@
 namespace karabo_bridge {
 
 /*
+  typedef enum {
+      MSGPACK_OBJECT_NIL                  = 0x00,
+      MSGPACK_OBJECT_BOOLEAN              = 0x01,
+      MSGPACK_OBJECT_POSITIVE_INTEGER     = 0x02,
+      MSGPACK_OBJECT_NEGATIVE_INTEGER     = 0x03,
+      MSGPACK_OBJECT_FLOAT32              = 0x0a,
+      MSGPACK_OBJECT_FLOAT64              = 0x04,
+      MSGPACK_OBJECT_FLOAT                = 0x04,
+      MSGPACK_OBJECT_STR                  = 0x05,
+      MSGPACK_OBJECT_ARRAY                = 0x06,
+      MSGPACK_OBJECT_MAP                  = 0x07,
+      MSGPACK_OBJECT_BIN                  = 0x08,
+      MSGPACK_OBJECT_EXT                  = 0x09
+  } msgpack_object_type;
+
+  NIL indicates either msgpack::NIL object or the data type in an empty
+  msgpack::ARRAY.
+*/
+const std::vector<std::string> object_type = {
+    "NIL", "bool", "uint64_t", "int64_t", "double", "string",
+    "msgpack::ARRAY", "msgpack::MAP", "msgpack::BIN", "msgpack::EXT", "float"
+};
+
+/*
  * A container hold a msgpack::object for deferred unpack.
- *
- * typedef enum {
-        MSGPACK_OBJECT_NIL                  = 0x00,
-        MSGPACK_OBJECT_BOOLEAN              = 0x01,
-        MSGPACK_OBJECT_POSITIVE_INTEGER     = 0x02,
-        MSGPACK_OBJECT_NEGATIVE_INTEGER     = 0x03,
-        MSGPACK_OBJECT_FLOAT32              = 0x0a,
-        MSGPACK_OBJECT_FLOAT64              = 0x04,
-        MSGPACK_OBJECT_FLOAT                = 0x04,
-        MSGPACK_OBJECT_STR                  = 0x05,
-        MSGPACK_OBJECT_ARRAY                = 0x06,
-        MSGPACK_OBJECT_MAP                  = 0x07,
-        MSGPACK_OBJECT_BIN                  = 0x08,
-        MSGPACK_OBJECT_EXT                  = 0x09
-   } msgpack_object_type;
  */
 class Object {
 
@@ -80,7 +89,8 @@ public:
 };
 
 /*
- * A container held a pointer to the data array and other information.
+ * A container held a pointer to a char array converted from a byte stream
+ * and other useful information.
  */
 class Array {
     const char* ptr_; // pointer to the 1D data array
@@ -281,6 +291,10 @@ private:
 
 /*
  * Data structure presented to the user.
+ *
+ * There are two different types of array: one is msgpack::ARRAY which is
+ * encapsulated by Object and another is char array which is converted from
+ * a byte stream and encapsulated by class Array.
  */
 struct kb_data {
     std::map<std::string, Object> msgpack_data;
@@ -317,6 +331,20 @@ std::string parseMultipartMsg(const MultipartMsg& mpmsg, bool boundary=true) {
     return output;
 }
 
+/*
+ * Convert a vector to a formatted string
+ */
+template <typename T>
+std::string vector2string(const std::vector<T> vec) {
+    std::stringstream ss;
+    ss << "[";
+    for (std::size_t i=0; i<vec.size(); ++i) {
+        ss << vec[i];
+        if (i != vec.size() - 1) ss << ", ";
+    }
+    ss << "]";
+    return ss.str();
+}
 
 /*
  * Karabo-bridge Client class.
@@ -418,12 +446,54 @@ public:
      *
      * Note:: this function consumes data!!!
      */
-    void showNext(const std::string& fname="multipart_message_structure.txt") {
+    void showMsg(const std::string& fname="multipart_message.txt") {
         sendRequest();
         auto mpmsg = receiveMultipartMsg();
 
         std::ofstream out(fname);
         out << parseMultipartMsg(mpmsg);
+        out.close();
+    }
+
+    /*
+     * Print the data structure of the received kb_data.
+     *
+     * Note:: this function consumes data!!!
+     */
+    void showNext(const std::string& fname="data_structure.txt") {
+        auto data = next();
+
+        std::stringstream ss;
+
+        for (auto const &v : data.msgpack_data) {
+            int idx = v.second.dtype();
+            // TODO: metadata will be flattened in the coming version
+            if (v.first != "metadata" && (idx == 7 || idx == 8 || idx ==9)) {
+                throw std::runtime_error("Unexpected data type! "
+                                         + v.first + ": " + object_type[idx]);
+            } else if (idx == 6) {
+                int size = v.second.get().via.array.size;
+                ss << v.first << ": " << object_type[idx] << ", ";
+                if (! size)
+                    ss << object_type[0] << ", [" << size << "]\n";
+                else {
+                   int idx_1 = v.second.get().via.array.ptr[0].type;
+                    ss << object_type[idx_1] << ", [" << size << "]\n";
+                }
+            } else {
+                ss << v.first << ": " << object_type[v.second.dtype()] << "\n";
+            }
+        }
+
+        for (auto const &v : data.array) {
+            ss << v.first << ": " << "Array"
+                      << ", " << v.second.dtype()
+                      << ", " << vector2string(v.second.shape())
+                      << "\n";
+        }
+
+        std::ofstream out(fname);
+        out << ss.str();
         out.close();
     }
 };
