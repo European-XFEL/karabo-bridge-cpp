@@ -54,7 +54,7 @@ public:
 
     explicit Object(const msgpack::object& value): value_(value) {}
 
-    virtual ~Object() = default;
+    ~Object() = default;
 
     // copy is not allowed
     Object(const Object&) = delete;
@@ -76,7 +76,7 @@ public:
 
     msgpack::object get() const { return value_; }
 
-    int type() const { return value_.type; }
+    int dtype() const { return value_.type; }
 };
 
 /*
