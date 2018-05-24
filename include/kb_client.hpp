@@ -47,7 +47,6 @@ namespace karabo_bridge {
  */
 class Object {
 
-protected:
     msgpack::object value_;
 
 public:
