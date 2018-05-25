@@ -389,6 +389,9 @@ public:
 
     /*
      * Request and return the next data from the server.
+     *
+     * Exceptions:
+     * std::runtime_error if unknown "content" is found
      */
     kb_data next() {
         using MsgObjectMap = std::map<std::string, msgpack::object>;
@@ -406,7 +409,7 @@ public:
         std::string source = root_unpacked.at("source").as<std::string>();
 
         if (auto dt_content = root_unpacked.at("content").as<std::string>() != "msgpack")
-            throw std::runtime_error("Unknown data content!" + dt_content);
+            throw std::runtime_error("Unknown data content: " + dt_content);
 
         for (auto it = mpmsg.begin() + 1; it != mpmsg.end(); ++it) {
             msgpack::object_handle oh;
@@ -414,8 +417,8 @@ public:
             auto data_unpacked = oh.get().as<MsgObjectMap>();
 
             if (data_unpacked.find("content") != data_unpacked.end()) {
-                if (data_unpacked.at("source").as<std::string>() != source)
-                    throw std::runtime_error("Inconsistent data source!");
+//                if (data_unpacked.at("source").as<std::string>() != source)
+//                    throw std::runtime_error("Inconsistent data source!");
 
                 auto content = data_unpacked.at("content").as<std::string>();
                 if (content == "array" || content == "ImageData") {
