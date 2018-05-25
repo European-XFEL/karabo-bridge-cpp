@@ -23,6 +23,7 @@
 #include <fstream>
 #include <exception>
 #include <limits>
+#include <type_traits>
 
 
 namespace karabo_bridge {
@@ -132,10 +133,25 @@ public:
      *       otherwise it leads to undefined behavior.
      *
      * Exceptions:
-     * std::bad_cast if the cast fails.
+     * std::bad_cast if the cast fails or the types do not match
      */
     template<typename T>
     std::vector<T> as() {
+        // type check
+        if ((dtype_ == "uint64" && ! std::is_same<T, uint64_t>::value) ||
+            (dtype_ == "uint32" && ! std::is_same<T, uint32_t>::value) ||
+            (dtype_ == "uint16" && ! std::is_same<T, uint16_t>::value) ||
+            (dtype_ == "uint8" && ! std::is_same<T, uint8_t>::value) ||
+            (dtype_ == "int64" && ! std::is_same<T, int64_t>::value) ||
+            (dtype_ == "int32" && ! std::is_same<T, int32_t>::value) ||
+            (dtype_ == "int16" && ! std::is_same<T, int16_t>::value) ||
+            (dtype_ == "int8" && ! std::is_same<T, int8_t>::value) ||
+            (dtype_ == "float" && ! std::is_same<T, float>::value) ||
+            (dtype_ == "double" && ! std::is_same<T, double>::value)) {
+            std::cerr << "Template type and data type '" + dtype_ + "' do not match!\n";
+            throw std::bad_cast();
+        }
+
         auto ptr = reinterpret_cast<const T*>(ptr_);
         // TODO: avoid the copy
         return std::vector<T>(ptr, ptr + size());
