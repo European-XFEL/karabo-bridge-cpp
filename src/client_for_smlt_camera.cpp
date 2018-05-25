@@ -1,6 +1,12 @@
+/*
+ * A test use a LimaSimulatedCamera and PipeToZeroMQ devices in local Karabo
+ * environment.
+ *
+ */
 #include "kb_client.hpp"
 
 #include <iostream>
+#include <thread>
 #include <chrono>
 
 
@@ -23,25 +29,34 @@ int main (int argc, char* argv[]) {
     client.showMsg();
     client.showNext();
 
-    auto start = std::chrono::high_resolution_clock::now();
+    for (int i=0; i<10; ++i) {
+        // there is bottleneck in the server side
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    auto data = client.next();
+        auto start = std::chrono::high_resolution_clock::now();
+        auto data = client.next();
+        auto end = std::chrono::high_resolution_clock::now();
+        std::cout << "Run " << std::setw(2) << i+1
+                  << ", data processing time: " << std::fixed << std::setprecision(3)
+                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.
+                  << " ms";
 
-    assert(data["data.image.bitsPerPixel"].as<uint64_t>() == 32);
-    assert(data["data.image.dimensionTypes"].as<std::vector<uint64_t>>() == std::vector<uint64_t>({0, 0}));
-    assert(data["data.image.dimensions"].as<std::vector<uint64_t>>() == std::vector<uint64_t>({1024, 1024}));
-    assert(data["metadata.timestamp.tid"].as<std::uint64_t>() == 0);
+        assert(data["data.image.bitsPerPixel"].as<uint64_t>() == 32);
+        assert(data["data.image.dimensionTypes"].as<std::vector<uint64_t>>() == std::vector<uint64_t>({0, 0}));
+        assert(data["data.image.dimensions"].as<std::vector<uint64_t>>() == std::vector<uint64_t>({1024, 1024}));
+        assert(data["metadata.timestamp.tid"].as<std::uint64_t>() == 0);
 
-    assert(data.array["data.image.data"].dtype() == "uint32");
-    assert(data.array["data.image.data"].shape() == std::vector<int>({1024, 1024}));
-    auto image_data = data.array["data.image.data"].as<uint32_t>();
-    assert(image_data.size() == 1024*1024);
-    for (auto v : image_data) assert(v >= 0);
+        assert(data.array["data.image.data"].dtype() == "uint32");
+        assert(data.array["data.image.data"].shape() == std::vector<int>({1024, 1024}));
+        start = std::chrono::high_resolution_clock::now();
+        auto image_data = data.array["data.image.data"].as<uint32_t>();
+        end = std::chrono::high_resolution_clock::now();
+        std::cout << ", time for processing a 1024x1024 image data: " << std::fixed << std::setprecision(3)
+                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.
+                  << " ms\n";
+        assert(image_data.size() == 1024*1024);
+        for (auto v : image_data) assert(v >= 0);
+    }
 
     std::cout << "Passed!" << std::endl;
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Execution time: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-              << " ms" << std::endl;
 }
