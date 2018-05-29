@@ -29,8 +29,8 @@ int main (int argc, char* argv[]) {
 
     client.connect("tcp://localhost:" + port);
 
-    client.showMsg();
-    client.showNext();
+    std::cout << client.showMsg();
+    std::cout << client.showNext();
 
     for (int i=0; i<10; ++i) {
         // there is bottleneck in the server side

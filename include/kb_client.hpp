@@ -459,25 +459,23 @@ public:
     }
 
     /*
-     * Parse the next multipart message and save the result to a file.
+     * Parse the next multipart message.
      *
      * Note:: this function consumes data!!!
      */
-    void showMsg(const std::string& fname="multipart_message.txt") {
+    std::string showMsg(const std::string& fname="multipart_message.txt") {
         sendRequest();
         auto mpmsg = receiveMultipartMsg();
 
-        std::ofstream out(fname);
-        out << parseMultipartMsg(mpmsg);
-        out.close();
+        return parseMultipartMsg(mpmsg);
     }
 
     /*
-     * Print the data structure of the received kb_data.
+     * Parse the data structure of the received kb_data.
      *
      * Note:: this function consumes data!!!
      */
-    void showNext(const std::string& fname="data_structure.txt") {
+    std::string showNext(const std::string& fname="data_structure.txt") {
         auto data = next();
 
         std::stringstream ss;
@@ -509,9 +507,7 @@ public:
                       << "\n";
         }
 
-        std::ofstream out(fname);
-        out << ss.str();
-        out.close();
+        return ss.str();
     }
 };
 
