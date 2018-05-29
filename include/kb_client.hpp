@@ -94,7 +94,7 @@ public:
  * and other useful information.
  */
 class Array {
-    const char* ptr_ = nullptr; // pointer to the 1D data array
+    zmq::message_t msg_;
     std::vector<unsigned int> shape_; // shape of the array
     std::string dtype_; // data type
 
@@ -114,8 +114,8 @@ public:
     Array() = default;
 
     // shape and dtype should be moved into the constructor
-    Array(const char* ptr, std::vector<unsigned int> shape, std::string dtype):
-        ptr_(ptr),
+    Array(zmq::message_t msg, std::vector<unsigned int> shape, std::string dtype):
+        msg_(std::move(msg)),
         shape_(std::move(shape)),
         dtype_(std::move(dtype)) {}
 
@@ -123,7 +123,7 @@ public:
     Array(const Array&) = delete;
     Array& operator=(const Array&) = delete;
 
-    Array(Array&&) noexcept = default;
+    Array(Array&&) = default;
     Array& operator=(Array&&) = default;
 
     /*
@@ -152,7 +152,7 @@ public:
             throw std::bad_cast();
         }
 
-        auto ptr = reinterpret_cast<const T*>(ptr_);
+        auto ptr = reinterpret_cast<const T*>(msg_.data());
         // TODO: avoid the copy
         return std::vector<T>(ptr, ptr + size());
     }
@@ -444,9 +444,7 @@ public:
                     std::advance(it, 1);
                     kbdt.array.insert(std::make_pair(
                         data_unpacked.at("path").as<std::string>(),
-                        Array(static_cast<const char*>(it->data()),
-                                                       std::move(shape),
-                                                       std::move(dtype))));
+                        Array(std::move(*it), std::move(shape), std::move(dtype))));
                 } else
                     throw std::runtime_error("Unknown data content: " + content);
 
