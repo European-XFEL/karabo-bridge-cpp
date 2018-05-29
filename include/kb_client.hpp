@@ -463,7 +463,7 @@ public:
      *
      * Note:: this function consumes data!!!
      */
-    std::string showMsg(const std::string& fname="multipart_message.txt") {
+    std::string showMsg() {
         sendRequest();
         auto mpmsg = receiveMultipartMsg();
 
@@ -475,7 +475,7 @@ public:
      *
      * Note:: this function consumes data!!!
      */
-    std::string showNext(const std::string& fname="data_structure.txt") {
+    std::string showNext() {
         auto data = next();
 
         std::stringstream ss;
