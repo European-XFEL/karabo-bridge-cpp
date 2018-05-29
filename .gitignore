@@ -4,5 +4,7 @@ build
 
 tests/server
 
-external/*
-!external/.placeholder
+external/msgpack/*
+!external/msgpack/.placeholder
+external/cppzmq/*
+!external/cppzmq/.placeholder
