@@ -94,8 +94,8 @@ public:
  * and other useful information.
  */
 class Array {
-    const char* ptr_; // pointer to the 1D data array
-    std::vector<int> shape_; // shape of the array
+    const char* ptr_ = nullptr; // pointer to the 1D data array
+    std::vector<unsigned int> shape_; // shape of the array
     std::string dtype_; // data type
 
     std::size_t size() const {
@@ -114,7 +114,7 @@ public:
     Array() = default;
 
     // shape and dtype should be moved into the constructor
-    Array(const char* ptr, std::vector<int> shape, std::string dtype):
+    Array(const char* ptr, std::vector<unsigned int> shape, std::string dtype):
         ptr_(ptr),
         shape_(std::move(shape)),
         dtype_(std::move(dtype)) {}
@@ -124,7 +124,7 @@ public:
     Array& operator=(const Array&) = delete;
 
     Array(Array&&) noexcept = default;
-    Array& operator=(Array&&) noexcept = default;
+    Array& operator=(Array&&) = default;
 
     /*
      * Cast the held const char* array to std::vector<T>.
@@ -157,7 +157,7 @@ public:
         return std::vector<T>(ptr, ptr + size());
     }
 
-    std::vector<int> shape() const { return shape_; }
+    std::vector<unsigned int> shape() const { return shape_; }
 
     std::string dtype() const { return dtype_; }
 };
@@ -245,7 +245,7 @@ struct karabo_visitor {
     bool start_array_item() {
         return true;
     }
-    bool start_array(uint32_t size) {
+    bool start_array(uint32_t /*size*/) {
         m_s += "[";
         return true;
     }
@@ -438,7 +438,7 @@ public:
 
                 auto content = data_unpacked.at("content").as<std::string>();
                 if (content == "array" || content == "ImageData") {
-                    auto shape = data_unpacked.at("shape").as<std::vector<int>>();
+                    auto shape = data_unpacked.at("shape").as<std::vector<unsigned int>>();
                     auto dtype = data_unpacked.at("dtype").as<std::string>();
 
                     std::advance(it, 1);

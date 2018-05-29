@@ -50,13 +50,13 @@ int main (int argc, char* argv[]) {
         assert(data["header.minorTrainFormatVersion"].as<uint64_t>() == 1);
 
         assert(data.array["image.trainId"].dtype() == "uint64");
-        assert(data.array["image.trainId"].shape() == std::vector<int>{32});
+        assert(data.array["image.trainId"].shape() == std::vector<unsigned int>{32});
         auto train_id = data.array["image.trainId"].as<uint64_t>();
         for (auto v : train_id) assert(v >= 10000000000);
         assert(train_id.size() == 32);
 
         assert(data.array["detector.data"].dtype() == "uint8");
-        assert(data.array["detector.data"].shape() == std::vector<int>{416});
+        assert(data.array["detector.data"].shape() == std::vector<unsigned int>{416});
         auto dt_data = data.array["detector.data"].as<uint8_t>();
         for (auto v : dt_data) assert(static_cast<unsigned int>(v) == 1);
         assert(dt_data.size() == 416);

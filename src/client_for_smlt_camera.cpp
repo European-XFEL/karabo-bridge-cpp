@@ -47,7 +47,7 @@ int main (int argc, char* argv[]) {
         assert(data["metadata.timestamp.tid"].as<std::uint64_t>() == 0);
 
         assert(data.array["data.image.data"].dtype() == "uint32");
-        assert(data.array["data.image.data"].shape() == std::vector<int>({1024, 1024}));
+        assert(data.array["data.image.data"].shape() == std::vector<unsigned int>({1024, 1024}));
         start = std::chrono::high_resolution_clock::now();
         auto image_data = data.array["data.image.data"].as<uint32_t>();
         end = std::chrono::high_resolution_clock::now();
