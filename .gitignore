@@ -3,3 +3,6 @@ build
 .idea
 
 tests/server
+
+external/*
+!external/.placeholder
