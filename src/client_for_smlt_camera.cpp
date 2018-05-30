@@ -2,6 +2,8 @@
  * A test use a LimaSimulatedCamera and PipeToZeroMQ devices in local Karabo
  * environment.
  *
+ * Author: Jun Zhu, zhujun981661@gmail.com
+ *
  */
 #include "kb_client.hpp"
 
@@ -26,8 +28,8 @@ int main (int argc, char* argv[]) {
 
     client.connect("tcp://localhost:" + port);
 
-    client.showMsg();
-    client.showNext();
+    std::cout << client.showMsg() << "\n";
+    std::cout << client.showNext() << "\n";
 
     for (int i=0; i<10; ++i) {
         // there is bottleneck in the server side

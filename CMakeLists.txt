@@ -35,4 +35,12 @@ foreach(target run1 run2)
 endforeach()
 
 enable_testing()
-add_subdirectory(tests)
+add_executable(test1 tests/test_version)
+add_executable(test2 tests/test_multipart_msg.cpp)
+foreach(target test1 test2)
+    target_include_directories(${target} PUBLIC ${ZeroMQ_INCLUDE_DIR})
+    target_link_libraries(${target} PUBLIC ${ZeroMQ_LIBRARY})
+endforeach()
+
+add_test(TEST_VERSION test1)
+add_test(TEST_MULTIPART_MSG test2)

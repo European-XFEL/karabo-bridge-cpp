@@ -6,6 +6,8 @@
 
     You should have received a copy of the 3-Clause BSD License along with this
     program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
+
+    Author: Jun Zhu, zhujun981661@gmail.com
 */
 
 #ifndef KARABO_BRIDGE_CPP_KB_CLIENT_HPP
@@ -94,7 +96,7 @@ public:
  * and other useful information.
  */
 class Array {
-    const char* ptr_ = nullptr; // pointer to the 1D data array
+    zmq::message_t msg_;
     std::vector<unsigned int> shape_; // shape of the array
     std::string dtype_; // data type
 
@@ -114,8 +116,8 @@ public:
     Array() = default;
 
     // shape and dtype should be moved into the constructor
-    Array(const char* ptr, std::vector<unsigned int> shape, std::string dtype):
-        ptr_(ptr),
+    Array(zmq::message_t msg, std::vector<unsigned int> shape, std::string dtype):
+        msg_(std::move(msg)),
         shape_(std::move(shape)),
         dtype_(std::move(dtype)) {}
 
@@ -123,7 +125,7 @@ public:
     Array(const Array&) = delete;
     Array& operator=(const Array&) = delete;
 
-    Array(Array&&) noexcept = default;
+    Array(Array&&) = default;
     Array& operator=(Array&&) = default;
 
     /*
@@ -152,7 +154,7 @@ public:
             throw std::bad_cast();
         }
 
-        auto ptr = reinterpret_cast<const T*>(ptr_);
+        auto ptr = reinterpret_cast<const T*>(msg_.data());
         // TODO: avoid the copy
         return std::vector<T>(ptr, ptr + size());
     }
@@ -313,12 +315,20 @@ private:
  * a byte stream and encapsulated by class Array.
  */
 struct kb_data {
+
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
 
     Object& operator[](const std::string& key) {
         return msgpack_data.at(key);
     }
+
+    std::size_t size() { return size_; }
+    void setSize(std::size_t s) { size_ = s; }
+
+private:
+    // size_ is the sum of the sizes of the received zmq messages.
+    std::size_t size_;
 };
 
 using MultipartMsg = std::deque<zmq::message_t>;
@@ -413,9 +423,12 @@ public:
         using MsgObjectMap = std::map<std::string, msgpack::object>;
 
         kb_data kbdt;
+        std::size_t byte_recv = 0;
 
         sendRequest();
         MultipartMsg mpmsg = receiveMultipartMsg();
+        for (auto& v : mpmsg) byte_recv += v.size();
+        kbdt.setSize(byte_recv);
         if (mpmsg.empty()) return kbdt;
 
         // deal with the first message
@@ -444,9 +457,7 @@ public:
                     std::advance(it, 1);
                     kbdt.array.insert(std::make_pair(
                         data_unpacked.at("path").as<std::string>(),
-                        Array(static_cast<const char*>(it->data()),
-                                                       std::move(shape),
-                                                       std::move(dtype))));
+                        Array(std::move(*it), std::move(shape), std::move(dtype))));
                 } else
                     throw std::runtime_error("Unknown data content: " + content);
 
@@ -461,25 +472,23 @@ public:
     }
 
     /*
-     * Parse the next multipart message and save the result to a file.
+     * Parse the next multipart message.
      *
      * Note:: this function consumes data!!!
      */
-    void showMsg(const std::string& fname="multipart_message.txt") {
+    std::string showMsg() {
         sendRequest();
         auto mpmsg = receiveMultipartMsg();
 
-        std::ofstream out(fname);
-        out << parseMultipartMsg(mpmsg);
-        out.close();
+        return parseMultipartMsg(mpmsg);
     }
 
     /*
-     * Print the data structure of the received kb_data.
+     * Parse the data structure of the received kb_data.
      *
      * Note:: this function consumes data!!!
      */
-    void showNext(const std::string& fname="data_structure.txt") {
+    std::string showNext() {
         auto data = next();
 
         std::stringstream ss;
@@ -511,9 +520,9 @@ public:
                       << "\n";
         }
 
-        std::ofstream out(fname);
-        out << ss.str();
-        out.close();
+        ss << "Total bytes received: " << data.size() << std::endl;
+
+        return ss.str();
     }
 };
 

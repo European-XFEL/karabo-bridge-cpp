@@ -4,8 +4,11 @@
  *
  * To run the server, use
  *
- *      from karabo_bridge import server_sim
- *      server_sim(1234)
+ *      from karabo_bridge import start_gen
+ *      start_gen(1234)
+ *
+ * Author: Jun Zhu, zhujun981661@gmail.com
+ *
  */
 #include "kb_client.hpp"
 
@@ -29,8 +32,8 @@ int main (int argc, char* argv[]) {
 
     client.connect("tcp://localhost:" + port);
 
-    client.showMsg();
-    client.showNext();
+    std::cout << client.showMsg() << "\n";
+    std::cout << client.showNext() << "\n";
 
     for (int i=0; i<10; ++i) {
         // there is bottleneck in the server side
@@ -60,6 +63,14 @@ int main (int argc, char* argv[]) {
         auto dt_data = data.array["detector.data"].as<uint8_t>();
         for (auto v : dt_data) assert(static_cast<unsigned int>(v) == 1);
         assert(dt_data.size() == 416);
+
+        assert(data.array["image.data"].dtype() == "uint16");
+        assert(data.array["image.data"].shape()[0] == 32);
+        assert(data.array["image.data"].shape()[1] == 16);
+        assert(data.array["image.data"].shape()[2] == 512);
+        assert(data.array["image.data"].shape()[3] == 128);
+        auto image_data = data.array["image.data"].as<uint16_t>();
+        for (auto v : image_data) assert(v >= 1500 && v <= 1600);
     }
 
     std::cout << "Passed!" << std::endl;
