@@ -4,8 +4,11 @@
  *
  * To run the server, use
  *
- *      from karabo_bridge import server_sim
- *      server_sim(1234)
+ *      from karabo_bridge import start_gen
+ *      start_gen(1234)
+ *
+ * Author: Jun Zhu, zhujun981661@gmail.com
+ *
  */
 #include "kb_client.hpp"
 
@@ -29,8 +32,8 @@ int main (int argc, char* argv[]) {
 
     client.connect("tcp://localhost:" + port);
 
-    std::cout << client.showMsg();
-    std::cout << client.showNext();
+    std::cout << client.showMsg() << "\n";
+    std::cout << client.showNext() << "\n";
 
     for (int i=0; i<10; ++i) {
         // there is bottleneck in the server side
