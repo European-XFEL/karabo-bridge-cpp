@@ -5,47 +5,45 @@ Karabo control system used at [European XFEL](https://www.xfel.eu/).
 
 Under development!
 
+## Requirements
+
+ [ZeroMQ](http://zeromq.org/) >= [4.2.5](https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.zip)
+ [cppzmq](https://github.com/zeromq/cppzmq) >= [4.2.2](https://github.com/zeromq/cppzmq/archive/v4.2.2.zip)
+ [msgpack](https://msgpack.org/index.html) >= [2.1.5](https://github.com/msgpack/msgpack-c/releases/download)
+
 ## Building and installing
 
-Download and install [zeromq](http://zeromq.org/)
+#### ZeroMQ
 ```sh
-wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.zip
-unzip zeromq-4.2.5.zip
-cd zeromq-4.2.5
-
-./autogen.sh
-./configure --prefix=/usr
-make
-make check  # optional
-sudo make install
+udo sh -c "echo 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/release-stable/xUbuntu_16.04/ /' > /etc/apt/sources.list.d/network:messaging:zeromq:release-stable.list"
+sudo apt-get update
+sudo apt-get install libzmq3-dev
 ```
 
-Download and install [cppzmq](https://github.com/zeromq/cppzmq)
-```sh
-wget https://github.com/zeromq/cppzmq/archive/v4.2.2.zip
-unzip v4.2.2.zip
-cd cppzmq-4.2.2
+#### cppzmq
+It is recommended to put the header files (`zmq.hpp`, `zmq_addon.hpp`) in the folder `external/cppzmq`.
 
+#### msgpack
+It is recommended to put the header files (the `msgpack-c/include` folder) in the folder `external/msgpack`.
+
+#### Build the examples
+
+- [example1](./src/client_for_pysim.cpp)
+- [example2](./src/client_for_smlt_camera.cpp)
+
+```sh
 mkdir build
 cd build
 cmake ..
-sudo make install
+make
+make check (optional)
 ```
 
+#### Use in your own project
 
-Download and install [msgpack](https://msgpack.org/index.html)
-```sh
-wget https://github.com/msgpack/msgpack-c/releases/download/cpp-2.1.5/msgpack-2.1.5.tar.gz
-tar -xzvf msgpack-2.1.5.tar.gz
-cd msgpack-2.1.5
+Include the header file `include/kb_client.hpp` in your project and compile.
 
-cmake -DMSGPACK_CXX11=ON .
-sudo make install
-```
-
-It is suggested to include the header file `include/kb_client.hpp` in your project and compile.
-
-## Usage
+## How to use
 
 ```c++
 import "kb_client.hpp"
@@ -56,7 +54,7 @@ client.connect("tcp://localhost:1234")
 
 #### showMsg()
 
-Use `showMsg()` member function to write the multipart messsage structure into a file (default is `multipart_message.txt`).
+Use `showMsg()` member function returns a string which tells you the multipart messsage structure.
 
 *Note: this member function consumes data!*
 
@@ -87,13 +85,13 @@ In the file, you will see something like
 "shape": [1024,1024]
 
 ----------new message----------
-0
+0  # A random integer following a message containing the Array/ImageData header indicates a chunk of byte stream.
 
 ```
 
 #### showNext()
 
-Use `showNext()` member function to write the data structure of the received multipart message into a file (default is `data_structure.txt`).
+Use `showNext()` member function to return a string which tells you the data structure of the received multipart message.
 
 *Note: this member function consumes data!*
 
@@ -113,6 +111,7 @@ metadata.timestamp.frac: string
 metadata.timestamp.sec: string
 metadata.timestamp.tid: uint64_t
 data.image.data: Array, uint32, [1024, 1024]
+Total bytes received: 67111554
 ```
 
 #### next()
@@ -124,6 +123,8 @@ struct kb_data {
     std::map<std::string, Array> array;
     
     Object& operator[](const std::string& key) { return msgpack_data.at(key); }
+    
+    std::size_t size();
 };
 
 karabo_bridge::kb_data result = client.next();
@@ -139,7 +140,3 @@ auto dataImageDimension = result["data.image.dimensions"].as<std::vector<uint64_
 std::vector<uint64_t> imageData = result.array["data.image.data"].as<uint64_t>()
 ```
 
-## Examples
-
-[example1](./src/client_for_pysim.cpp)
-[example2](./src/client_for_smlt_camera.cpp)
