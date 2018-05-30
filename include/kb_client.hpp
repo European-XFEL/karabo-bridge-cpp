@@ -315,12 +315,20 @@ private:
  * a byte stream and encapsulated by class Array.
  */
 struct kb_data {
+
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
 
     Object& operator[](const std::string& key) {
         return msgpack_data.at(key);
     }
+
+    std::size_t size() { return size_; }
+    void setSize(std::size_t s) { size_ = s; }
+
+private:
+    // size_ is the sum of the sizes of the received zmq messages.
+    std::size_t size_;
 };
 
 using MultipartMsg = std::deque<zmq::message_t>;
@@ -415,9 +423,12 @@ public:
         using MsgObjectMap = std::map<std::string, msgpack::object>;
 
         kb_data kbdt;
+        std::size_t byte_recv = 0;
 
         sendRequest();
         MultipartMsg mpmsg = receiveMultipartMsg();
+        for (auto& v : mpmsg) byte_recv += v.size();
+        kbdt.setSize(byte_recv);
         if (mpmsg.empty()) return kbdt;
 
         // deal with the first message
@@ -508,6 +519,8 @@ public:
                       << ", " << vector2string(v.second.shape())
                       << "\n";
         }
+
+        ss << "Total bytes received: " << data.size() << std::endl;
 
         return ss.str();
     }
