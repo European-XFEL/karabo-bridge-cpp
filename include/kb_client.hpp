@@ -339,8 +339,11 @@ using MultipartMsg = std::deque<zmq::message_t>;
 std::string parseMsg(const zmq::message_t& msg) {
     std::string data_str;
     karabo_visitor visitor(data_str);
-    bool ret = msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), visitor);
-    assert(ret);
+#ifdef DEBUG
+    assert(msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), visitor));
+#else
+    msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), visitor);
+#endif
     return data_str;
 }
 
