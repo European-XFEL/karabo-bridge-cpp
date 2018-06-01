@@ -29,19 +29,21 @@ int main (int argc, char* argv[]) {
     client.connect("tcp://localhost:" + port);
 
     std::cout << client.showMsg() << "\n";
-    std::cout << client.showNext() << "\n";
+//    std::cout << client.showNext() << "\n";
 
     for (int i=0; i<10; ++i) {
         // there is bottleneck in the server side
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         auto start = std::chrono::high_resolution_clock::now();
-        auto data = client.next();
+        auto data_pkg = client.next();
         auto end = std::chrono::high_resolution_clock::now();
         std::cout << "Run " << std::setw(2) << i+1
                   << ", data processing time: " << std::fixed << std::setprecision(3)
                   << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.
                   << " ms";
+
+        karabo_bridge::kb_data data(std::move(data_pkg.begin()->second));
 
         assert(data["data.image.bitsPerPixel"].as<uint64_t>() == 32);
         assert(data["data.image.dimensionTypes"].as<std::vector<uint64_t>>() == std::vector<uint64_t>({0, 0}));

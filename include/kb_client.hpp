@@ -68,11 +68,12 @@ public:
 
     ~Object() = default;
 
-    // copy is not allowed
-    Object(const Object&) = delete;
-    Object& operator=(const Object&) = delete;
+    Object(const Object&) = default;
+
+    Object& operator=(const Object&) = default;
 
     Object(Object&&) noexcept = default;
+
     Object& operator=(Object&&) noexcept = default;
 
     /*
@@ -96,7 +97,7 @@ public:
  * and other useful information.
  */
 class Array {
-    zmq::message_t msg_;
+    zmq::message_t msg_; // cannot be copied
     std::vector<unsigned int> shape_; // shape of the array
     std::string dtype_; // data type
 
@@ -121,9 +122,17 @@ public:
         shape_(std::move(shape)),
         dtype_(std::move(dtype)) {}
 
-    // copy is not allowed
-    Array(const Array&) = delete;
-    Array& operator=(const Array&) = delete;
+    Array(const Array& rhs) : shape_(rhs.shape_), dtype_(rhs.dtype_) {
+        msg_.copy(&rhs.msg_);
+    };
+
+    Array& operator=(const Array& rhs) {
+        msg_.copy(&rhs.msg_);
+        shape_ = rhs.shape_;
+        dtype_ = rhs.dtype_;
+
+        return *this;
+    };
 
     Array(Array&&) = default;
     Array& operator=(Array&&) = default;
@@ -315,7 +324,6 @@ private:
  * a byte stream and encapsulated by class Array.
  */
 struct kb_data {
-
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
 
@@ -331,6 +339,7 @@ private:
     std::size_t size_;
 };
 
+using MsgObjectMap = std::map<std::string, msgpack::object>;
 using MultipartMsg = std::deque<zmq::message_t>;
 
 /*
@@ -361,10 +370,24 @@ std::string parseMultipartMsg(const MultipartMsg& mpmsg, bool boundary=true) {
 }
 
 /*
+ * Unpack a dictionary like message.
+ *
+ * The msg must be moved into the function and destroyed here.
+ *
+ * Exceptions:
+ * std::bad_cast if the msg cannot be converted to std::map<std::string, msgpack::object>
+ */
+MsgObjectMap unpack_msg(zmq::message_t&& msg) {
+    msgpack::object_handle oh;
+    msgpack::unpack(oh, static_cast<const char*>(msg.data()), msg.size());
+    return oh.get().as<MsgObjectMap>();
+}
+
+/*
  * Convert a vector to a formatted string
  */
 template <typename T>
-std::string vector2string(const std::vector<T> vec) {
+std::string vector2string(const std::vector<T>& vec) {
     std::stringstream ss;
     ss << "[";
     for (std::size_t i=0; i<vec.size(); ++i) {
@@ -422,56 +445,61 @@ public:
      * Exceptions:
      * std::runtime_error if unknown "content" is found
      */
-    kb_data next() {
-        using MsgObjectMap = std::map<std::string, msgpack::object>;
-
-        kb_data kbdt;
-        std::size_t byte_recv = 0;
+    std::map<std::string, kb_data> next() {
+        std::map<std::string, kb_data> data_pkg;
 
         sendRequest();
         MultipartMsg mpmsg = receiveMultipartMsg();
-        for (auto& v : mpmsg) byte_recv += v.size();
-        kbdt.setSize(byte_recv);
-        if (mpmsg.empty()) return kbdt;
+        if (mpmsg.empty()) return data_pkg;
+        if (mpmsg.size() % 2)
+            throw std::runtime_error("The multipart message is expected to "
+                                     "contain even number of messages!");
 
-        // deal with the first message
-        msgpack::object_handle oh_root;
-        msgpack::unpack(oh_root, static_cast<const char*>(mpmsg[0].data()), mpmsg[0].size());
-        auto root_unpacked = oh_root.get().as<MsgObjectMap>();
-        std::string source = root_unpacked.at("source").as<std::string>();
+        kb_data kbdt;
+        std::string source;
+        std::size_t byte_recv = 0;
+        bool is_initialized = false;
+        auto it = mpmsg.begin();
+        while(it != mpmsg.end()) {
+            // the header must contain "source" and "content"
+            auto header_unpacked = unpack_msg(std::move(*it));
+            source = header_unpacked.at("source").as<std::string>();
+            auto content = header_unpacked.at("content").as<std::string>();
 
-        if (auto dt_content = root_unpacked.at("content").as<std::string>() != "msgpack")
-            throw std::runtime_error("Unknown data content: " + dt_content);
-
-        for (auto it = mpmsg.begin() + 1; it != mpmsg.end(); ++it) {
-            msgpack::object_handle oh;
-            msgpack::unpack(oh, static_cast<const char*>(it->data()), it->size());
-            auto data_unpacked = oh.get().as<MsgObjectMap>();
-
-            if (data_unpacked.find("content") != data_unpacked.end()) {
-//                if (data_unpacked.at("source").as<std::string>() != source)
-//                    throw std::runtime_error("Inconsistent data source!");
-
-                auto content = data_unpacked.at("content").as<std::string>();
-                if (content == "array" || content == "ImageData") {
-                    auto shape = data_unpacked.at("shape").as<std::vector<unsigned int>>();
-                    auto dtype = data_unpacked.at("dtype").as<std::string>();
-
-                    std::advance(it, 1);
-                    kbdt.array.insert(std::make_pair(
-                        data_unpacked.at("path").as<std::string>(),
-                        Array(std::move(*it), std::move(shape), std::move(dtype))));
-                } else
-                    throw std::runtime_error("Unknown data content: " + content);
-
-            } else {
-                for (auto &dt : data_unpacked) {
-                    kbdt.msgpack_data.insert(std::make_pair(dt.first, dt.second.as<Object>()));
+            // the next message is the content (data)
+            std::advance(it, 1);
+            if (content == "msgpack") {
+                if (!is_initialized)
+                    is_initialized = true;
+                else {
+                    kbdt.setSize(byte_recv);
+                    data_pkg.insert(std::make_pair(std::move(source), std::move(kbdt)));
+                    kbdt = {};
+                    byte_recv = 0;
                 }
+                byte_recv += it->size();
+                auto data_unpacked = unpack_msg(std::move(*it));
+                for (auto &dt : data_unpacked)
+                    kbdt.msgpack_data.insert(std::make_pair(dt.first, dt.second.as<Object>()));
+            } else if ((content == "array" || content == "ImageData")) {
+                byte_recv += it->size();
+                auto shape = header_unpacked.at("shape").as<std::vector<unsigned int>>();
+                auto dtype = header_unpacked.at("dtype").as<std::string>();
+
+                kbdt.array.insert(std::make_pair(
+                    header_unpacked.at("path").as<std::string>(),
+                    Array(std::move(*it), std::move(shape), std::move(dtype))));
+            } else {
+                throw std::runtime_error("Unknown data content: " + content);
             }
+
+            std::advance(it, 1);
         }
 
-        return kbdt;
+        kbdt.setSize(byte_recv);
+        data_pkg.insert(std::make_pair(std::move(source), std::move(kbdt)));
+
+        return data_pkg;
     }
 
     /*
@@ -482,7 +510,6 @@ public:
     std::string showMsg() {
         sendRequest();
         auto mpmsg = receiveMultipartMsg();
-
         return parseMultipartMsg(mpmsg);
     }
 
@@ -492,38 +519,60 @@ public:
      * Note:: this function consumes data!!!
      */
     std::string showNext() {
-        auto data = next();
+        auto data_pkg = next();
 
         std::stringstream ss;
+        for (auto& data : data_pkg) {
+            ss << "source: " << data.first << "\n";
+            ss << "Total bytes received: " << data.second.size()
+               << " (header messages are excluded) \n\n";
 
-        for (auto const &v : data.msgpack_data) {
-            int idx = v.second.dtype();
-            // TODO: metadata will be flattened in the coming version
-            if (v.first != "metadata" && (idx == 7 || idx == 8 || idx ==9)) {
-                throw std::runtime_error("Unexpected data type! "
-                                         + v.first + ": " + object_type[idx]);
-            } else if (idx == 6) {
-                int size = v.second.get().via.array.size;
-                ss << v.first << ": " << object_type[idx] << ", ";
-                if (! size)
-                    ss << object_type[0] << ", [" << size << "]\n";
-                else {
-                   int idx_1 = v.second.get().via.array.ptr[0].type;
-                    ss << object_type[idx_1] << ", [" << size << "]\n";
+            ss << "path, type, container data type, container shape\n";
+            for (auto& v : data.second.msgpack_data) {
+                int idx = v.second.dtype();
+
+                ss << v.first << ", ";
+
+                if (idx == 0) { // msgpack::NIL
+                    ss << object_type[idx] << " (Check...unexpected data type!)\n";
+                } else if (idx == 6 ) { // msgpack::ARRAY
+                    int size = v.second.get().via.array.size;
+                    ss << object_type[idx] << ", ";
+                    if (!size) {
+                        ss << object_type[0] << ", [" << size << "]\n";
+                    } else {
+                        if (v.first == "image.passport") {
+//                            ss << v.second.get() << "\n";
+                            // TODO: check the array of string
+                            ss << "string" << ", [" << size << "]\n";
+                        } else {
+                            int idxx = v.second.get().via.array.ptr[1].type;
+                            ss << object_type[idxx] << ", [" << size << "]\n";
+                        }
+                    }
+
+                } else if (idx == 7) { // msgpack::MAP
+                    ss << object_type[idx] << " (Check...unexpected data type!)\n";
+
+                } else if (idx == 8 ) { // msgpack::BIN
+                    int size = v.second.get().via.bin.size;
+                    ss << object_type[idx] << ", " << "int8_t" << ", [" << size << "]\n";
+
+                } else if (idx == 9) { // msgpack::EXT
+                    ss << object_type[idx] << " (Check...unexpected data type!)\n";
+
+                } else {
+                    ss << object_type[v.second.dtype()] << "\n";
                 }
-            } else {
-                ss << v.first << ": " << object_type[v.second.dtype()] << "\n";
             }
-        }
 
-        for (auto const &v : data.array) {
-            ss << v.first << ": " << "Array"
-                      << ", " << v.second.dtype()
-                      << ", " << vector2string(v.second.shape())
-                      << "\n";
-        }
+            for (auto &v : data.second.array) {
+                ss << v.first << ": " << "Array" << ", " << v.second.dtype()
+                   << ", " << vector2string(v.second.shape()) << "\n";
+            }
 
-        ss << "Total bytes received: " << data.size() << std::endl;
+            ss << "\n";
+        }
 
         return ss.str();
     }
