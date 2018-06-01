@@ -1,47 +1,73 @@
 # karabo-bridge-cpp
 
-*karabo-bridge-cpp* is a C++ client to receive pipeline data from the
-Karabo control system used at [European XFEL](https://www.xfel.eu/).
-
-Under development!
+*karabo-bridge-cpp* is a C++ client to receive pipeline data from the Karabo control system used at [European XFEL](https://www.xfel.eu/).
 
 ## Requirements
 
- [ZeroMQ](http://zeromq.org/) >= [4.2.5](https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.zip)
- [cppzmq](https://github.com/zeromq/cppzmq) >= [4.2.2](https://github.com/zeromq/cppzmq/archive/v4.2.2.zip)
- [msgpack](https://msgpack.org/index.html) >= [2.1.5](https://github.com/msgpack/msgpack-c/releases/download)
+ - [ZeroMQ](http://zeromq.org/) >= [4.2.5](https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.zip)
+ - [cppzmq](https://github.com/zeromq/cppzmq) >= [4.2.2](https://github.com/zeromq/cppzmq/archive/v4.2.2.zip)
+ - [msgpack](https://msgpack.org/index.html) >= [2.1.5](https://github.com/msgpack/msgpack-c/releases/download)
 
-## Building and installing
+## Set up the environment
+
+#### Karabo-bridge-cpp
+
+```sh
+git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
+```
 
 #### ZeroMQ
+
+If you have "sudoer", e.g. in your own PC, then
 ```sh
-udo sh -c "echo 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/release-stable/xUbuntu_16.04/ /' > /etc/apt/sources.list.d/network:messaging:zeromq:release-stable.list"
+sudo sh -c "echo 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/release-stable/xUbuntu_16.04/ /' > /etc/apt/sources.list.d/network:messaging:zeromq:release-stable.list"
 sudo apt-get update
 sudo apt-get install libzmq3-dev
 ```
 
-#### cppzmq
-It is recommended to put the header files (`zmq.hpp`, `zmq_addon.hpp`) in the folder `external/cppzmq`.
-
-#### msgpack
-It is recommended to put the header files (the `msgpack-c/include` folder) in the folder `external/msgpack`.
-
-#### Build the examples
-
-- [example1](./src/client_for_pysim.cpp)
-- [example2](./src/client_for_smlt_camera.cpp)
+If you are on a cluster, then
 
 ```sh
-mkdir build
-cd build
-cmake ..
+./configure -prefix=$HOME/share/zeromq
 make
-make check (optional)
+make install
 ```
 
-#### Use in your own project
+#### cppzmq
+Copy the header files (`zmq.hpp`, `zmq_addon.hpp`) to `karabo-bridge-cpp/external/cppzmq/`.
 
-Include the header file `include/kb_client.hpp` in your project and compile.
+#### msgpack
+Copy the `include` folder to `karabo-bridge-cpp/external/msgpack/`.
+
+#### Compiler
+Make sure you have `g++ 4.8.5` installed in your own PC to be in line with the compiler in the Maxwell cluster.
+
+## Build and test
+
+```sh
+./autogen.sh
+```
+
+## Run the examples
+
+- For [example1](./src/client_for_pysim.cpp), you will need to have a Python simulated server running in a Screen:
+
+```py
+from karabo_bridge import start_gen
+start_gen(1234)
+```
+
+then
+
+```sh
+build/run1
+```
+
+- For [example2](./src/client_for_smlt_camera.cpp), you will need to set up a Karabo device server with LimaSimulatedCamera and PipeToZeroMQ devices, then
+
+```sh
+build/run2
+```
 
 ## How to use
 
@@ -58,7 +84,7 @@ Use `showMsg()` member function returns a string which tells you the multipart m
 
 *Note: this member function consumes data!*
 
-In the file, you will see something like
+You will see something like
 ```md
 
 ----------new message----------
@@ -95,7 +121,7 @@ Use `showNext()` member function to return a string which tells you the data str
 
 *Note: this member function consumes data!*
 
-In the file, you will see something like
+You will see something like
 
 ```md
 data.image.bitsPerPixel: uint64_t
