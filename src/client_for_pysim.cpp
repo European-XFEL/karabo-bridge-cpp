@@ -36,7 +36,7 @@ int main (int argc, char* argv[]) {
         auto data_pkg = client.next();
         auto end = std::chrono::high_resolution_clock::now();
         std::cout << "Run " << std::setw(2) << i+1
-                  << ", data processing time: " << std::fixed << std::setprecision(1)
+                  << ", data acquiring time: " << std::fixed << std::setprecision(1)
                   << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.
                   << " ms\n";
 
