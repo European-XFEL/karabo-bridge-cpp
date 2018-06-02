@@ -30,29 +30,37 @@
 
 namespace karabo_bridge {
 
-/*
-  typedef enum {
-      MSGPACK_OBJECT_NIL                  = 0x00,
-      MSGPACK_OBJECT_BOOLEAN              = 0x01,
-      MSGPACK_OBJECT_POSITIVE_INTEGER     = 0x02,
-      MSGPACK_OBJECT_NEGATIVE_INTEGER     = 0x03,
-      MSGPACK_OBJECT_FLOAT32              = 0x0a,
-      MSGPACK_OBJECT_FLOAT64              = 0x04,
-      MSGPACK_OBJECT_FLOAT                = 0x04,
-      MSGPACK_OBJECT_STR                  = 0x05,
-      MSGPACK_OBJECT_ARRAY                = 0x06,
-      MSGPACK_OBJECT_MAP                  = 0x07,
-      MSGPACK_OBJECT_BIN                  = 0x08,
-      MSGPACK_OBJECT_EXT                  = 0x09
-  } msgpack_object_type;
-
-  NIL indicates either msgpack::NIL object or the data type in an empty
-  msgpack::ARRAY.
-*/
-const std::vector<std::string> object_type = {
-    "NIL", "bool", "uint64_t", "int64_t", "double", "string",
-    "msgpack::ARRAY", "msgpack::MAP", "msgpack::BIN", "msgpack::EXT", "float"
+// map msgpack object types to strings
+std::map<msgpack::type::object_type, std::string> msgpack_type_map = {
+    {msgpack::type::object_type::NIL, "MSGPACK_OBJECT_NIL"},
+    {msgpack::type::object_type::BOOLEAN, "MSGPACK_OBJECT_BOOLEAN"},
+    {msgpack::type::object_type::POSITIVE_INTEGER, "uint64_t"},
+    {msgpack::type::object_type::NEGATIVE_INTEGER, "int64_t"},
+    {msgpack::type::object_type::FLOAT32, "float"},
+    {msgpack::type::object_type::FLOAT64, "double"},
+    {msgpack::type::object_type::STR, "string"},
+    {msgpack::type::object_type::ARRAY, "MSGPACK_OBJECT_ARRAY"},
+    {msgpack::type::object_type::MAP, "MSGPACK_OBJECT_MAP"},
+    {msgpack::type::object_type::BIN, "MSGPACK_OBJECT_BIN"},
+    {msgpack::type::object_type::EXT, "MSGPACK_OBJECT_EXT"}
 };
+
+/*
+ * Use to check data type before cast.
+ */
+template <typename T>
+bool check_type_by_string(const std::string& type_string) {
+    if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return true;
+    if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return true;
+    if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return true;
+    if (type_string == "uint8_t" && std::is_same<T, uint8_t>::value) return true;
+    if (type_string == "int64_t" && std::is_same<T, int64_t>::value) return true;
+    if (type_string == "int32_t" && std::is_same<T, int32_t>::value) return true;
+    if (type_string == "int16_t" && std::is_same<T, int16_t>::value) return true;
+    if (type_string == "int8_t" && std::is_same<T, int8_t>::value) return true;
+    if (type_string == "float" && std::is_same<T, float>::value) return true;
+    return (type_string == "double" && std::is_same<T, double>::value);
+}
 
 /*
  * A container hold a msgpack::object for deferred unpack.
@@ -89,7 +97,7 @@ public:
 
     msgpack::object get() const { return value_; }
 
-    int dtype() const { return value_.type; }
+    std::string dtype() const { return msgpack_type_map.at(value_.type); }
 };
 
 /*
@@ -134,34 +142,22 @@ public:
         return *this;
     };
 
+    /*
+     * Move and move assignment constructor cannot be noexcept since the
+     * move constructor of zmq::message_t throws.
+     */
     Array(Array&&) = default;
     Array& operator=(Array&&) = default;
 
     /*
-     * Cast the held const char* array to std::vector<T>.
-     *
-     * Note: users are responsible to give the correct data type
-     *       otherwise it leads to undefined behavior.
+     * Convert the data held in msg:message_t object to std::vector<T>.
      *
      * Exceptions:
      * std::bad_cast if the cast fails or the types do not match
      */
     template<typename T>
     std::vector<T> as() {
-        // type check
-        if ((dtype_ == "uint64" && ! std::is_same<T, uint64_t>::value) ||
-            (dtype_ == "uint32" && ! std::is_same<T, uint32_t>::value) ||
-            (dtype_ == "uint16" && ! std::is_same<T, uint16_t>::value) ||
-            (dtype_ == "uint8" && ! std::is_same<T, uint8_t>::value) ||
-            (dtype_ == "int64" && ! std::is_same<T, int64_t>::value) ||
-            (dtype_ == "int32" && ! std::is_same<T, int32_t>::value) ||
-            (dtype_ == "int16" && ! std::is_same<T, int16_t>::value) ||
-            (dtype_ == "int8" && ! std::is_same<T, int8_t>::value) ||
-            (dtype_ == "float" && ! std::is_same<T, float>::value) ||
-            (dtype_ == "double" && ! std::is_same<T, double>::value)) {
-            std::cerr << "Template type and data type '" + dtype_ + "' do not match!\n";
-            throw std::bad_cast();
-        }
+        if (!check_type_by_string<T>(dtype_)) throw std::bad_cast();
 
         auto ptr = reinterpret_cast<const T*>(msg_.data());
         // TODO: avoid the copy
@@ -318,10 +314,10 @@ private:
 
 /*
  * Data structure presented to the user.
+ * // TODO: implement simplified boost::any to improve interface and encapsulation
  *
  * There are two different types of array: one is msgpack::ARRAY which is
- * encapsulated by Object and another is char array which is converted from
- * a byte stream and encapsulated by class Array.
+ * encapsulated by Object and another is byte array which is encapsulated in class Array.
  */
 struct kb_data {
     std::map<std::string, Object> msgpack_data;
@@ -485,6 +481,8 @@ public:
                 byte_recv += it->size();
                 auto shape = header_unpacked.at("shape").as<std::vector<unsigned int>>();
                 auto dtype = header_unpacked.at("dtype").as<std::string>();
+                // convert the python type to the corresponding c++ type
+                if (dtype.find("int") != std::string::npos) dtype.append("_t");
 
                 kbdt.array.insert(std::make_pair(
                     header_unpacked.at("path").as<std::string>(),
@@ -529,40 +527,40 @@ public:
 
             ss << "path, type, container data type, container shape\n";
             for (auto& v : data.second.msgpack_data) {
-                int idx = v.second.dtype();
+                msgpack::type::object_type type_id = v.second.get().type;
 
                 ss << v.first << ", ";
 
-                if (idx == 0) { // msgpack::NIL
-                    ss << object_type[idx] << " (Check...unexpected data type!)\n";
-                } else if (idx == 6 ) { // msgpack::ARRAY
+                if (type_id == msgpack::type::object_type::NIL) { // msgpack::NIL
+                    ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
+                } else if (type_id == msgpack::type::object_type::ARRAY ) { // msgpack::ARRAY
                     int size = v.second.get().via.array.size;
-                    ss << object_type[idx] << ", ";
+                    ss << msgpack_type_map[type_id] << ", ";
                     if (!size) {
-                        ss << object_type[0] << ", [" << size << "]\n";
+                        ss << "Empty" << " (Check...unexpected data type!)\n";;
                     } else {
                         if (v.first == "image.passport") {
 //                            ss << v.second.get() << "\n";
                             // TODO: check the array of string
                             ss << "string" << ", [" << size << "]\n";
                         } else {
-                            int idxx = v.second.get().via.array.ptr[1].type;
-                            ss << object_type[idxx] << ", [" << size << "]\n";
+                            msgpack::type::object_type type_id_ = v.second.get().via.array.ptr[1].type;
+                            ss << ", [" << size << "]\n";
                         }
                     }
 
-                } else if (idx == 7) { // msgpack::MAP
-                    ss << object_type[idx] << " (Check...unexpected data type!)\n";
+                } else if (type_id == msgpack::type::object_type::MAP) { // msgpack::MAP
+                    ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
 
-                } else if (idx == 8 ) { // msgpack::BIN
+                } else if (type_id == msgpack::type::object_type::BIN ) { // msgpack::BIN
                     int size = v.second.get().via.bin.size;
-                    ss << object_type[idx] << ", " << "int8_t" << ", [" << size << "]\n";
+                    ss << msgpack_type_map[type_id] << ", " << "byte" << ", [" << size << "]\n";
 
-                } else if (idx == 9) { // msgpack::EXT
-                    ss << object_type[idx] << " (Check...unexpected data type!)\n";
+                } else if (type_id == msgpack::type::object_type::EXT) { // msgpack::EXT
+                    ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
 
                 } else {
-                    ss << object_type[v.second.dtype()] << "\n";
+                    ss << msgpack_type_map[v.second.get().type] << "\n";
                 }
             }
 
