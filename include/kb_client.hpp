@@ -300,9 +300,11 @@ class kb_data {
 public:
     kb_data() = default;
 
-    // not copyable since array is not copyable
-//    kb_data(const kb_data&) = delete;
-//    kb_data& operator=(const kb_data&) = delete;
+    kb_data(const kb_data&) = delete;
+    kb_data& operator=(const kb_data&) = delete;
+
+    kb_data(kb_data&&) = default;
+    kb_data& operator=(kb_data&&) = default;
 
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
