@@ -54,7 +54,9 @@ int main (int argc, char* argv[]) {
                   << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.
                   << " ms\n";
         assert(image_data.size() == 1024*1024);
-        for (auto v : image_data) assert(v >= 0 && v <= 124300);
+        // The number increases with time, so one should restart the camera
+        // after several runs.
+        for (auto v : image_data) assert(v >= 0 && v <= 50000);
     }
 
     std::cout << "Passed!" << std::endl;
