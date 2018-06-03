@@ -17,13 +17,6 @@
 #include <chrono>
 
 
-template <class T>
-void printContainer(const T& container) {
-    for (auto v : container) std::cout << v << " ";
-    std::cout << std::endl;
-}
-
-
 int main (int argc, char* argv[]) {
     std::string port = "1234";
     if (argc >= 2) port = argv[1];
@@ -55,7 +48,10 @@ int main (int argc, char* argv[]) {
         assert(data["header.majorTrainFormatVersion"].as<uint64_t>() == 2);
         assert(data["header.minorTrainFormatVersion"].as<uint64_t>() == 1);
 
-        // TODO: check msgpack::object_type::BIN data
+        assert(data["detector.data"].dtype() == "MSGPACK_OBJECT_BIN");
+        auto detector_data = data["detector.data"].as<std::vector<uint8_t>>();
+        assert(detector_data.size() == 416);
+        for (auto v : detector_data) assert(v == 1);
 
         assert(data.array["image.trainId"].dtype() == "uint64_t");
         assert(data.array["image.trainId"].shape() == std::vector<unsigned int>{31});

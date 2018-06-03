@@ -30,10 +30,14 @@
 
 namespace karabo_bridge {
 
+using MsgObjectMap = std::map<std::string, msgpack::object>;
+
+using MultipartMsg = std::deque<zmq::message_t>;
+
 // map msgpack object types to strings
 std::map<msgpack::type::object_type, std::string> msgpack_type_map = {
     {msgpack::type::object_type::NIL, "MSGPACK_OBJECT_NIL"},
-    {msgpack::type::object_type::BOOLEAN, "MSGPACK_OBJECT_BOOLEAN"},
+    {msgpack::type::object_type::BOOLEAN, "bool"},
     {msgpack::type::object_type::POSITIVE_INTEGER, "uint64_t"},
     {msgpack::type::object_type::NEGATIVE_INTEGER, "int64_t"},
     {msgpack::type::object_type::FLOAT32, "float"},
@@ -46,7 +50,7 @@ std::map<msgpack::type::object_type, std::string> msgpack_type_map = {
 };
 
 /*
- * Use to check data type before cast.
+ * Use to check data type before casting an Array object.
  */
 template <typename T>
 bool check_type_by_string(const std::string& type_string) {
@@ -66,7 +70,7 @@ bool check_type_by_string(const std::string& type_string) {
  * A container hold a msgpack::object for deferred unpack.
  */
 class Object {
-
+    // msgpack::object has a shallow copy constructor
     msgpack::object value_;
 
 public:
@@ -76,14 +80,6 @@ public:
 
     ~Object() = default;
 
-    Object(const Object&) = default;
-
-    Object& operator=(const Object&) = default;
-
-    Object(Object&&) noexcept = default;
-
-    Object& operator=(Object&&) noexcept = default;
-
     /*
      * Cast the held msgpack::object to a given type.
      *
@@ -91,9 +87,7 @@ public:
      * std::bad_cast if the cast fails.
      */
     template<typename T>
-    T as() {
-        return value_.as<T>();
-    }
+    T as() { return value_.as<T>(); }
 
     msgpack::object get() const { return value_; }
 
@@ -101,11 +95,10 @@ public:
 };
 
 /*
- * A container held a pointer to a char array converted from a byte stream
- * and other useful information.
+ * A container held a pointer to the data chunk and other useful information.
  */
 class Array {
-    zmq::message_t msg_; // cannot be copied
+    void* ptr_; // pointer to the data chunk
     std::vector<unsigned int> shape_; // shape of the array
     std::string dtype_; // data type
 
@@ -125,29 +118,10 @@ public:
     Array() = default;
 
     // shape and dtype should be moved into the constructor
-    Array(zmq::message_t msg, std::vector<unsigned int> shape, std::string dtype):
-        msg_(std::move(msg)),
-        shape_(std::move(shape)),
-        dtype_(std::move(dtype)) {}
-
-    Array(const Array& rhs) : shape_(rhs.shape_), dtype_(rhs.dtype_) {
-        msg_.copy(&rhs.msg_);
-    };
-
-    Array& operator=(const Array& rhs) {
-        msg_.copy(&rhs.msg_);
-        shape_ = rhs.shape_;
-        dtype_ = rhs.dtype_;
-
-        return *this;
-    };
-
-    /*
-     * Move and move assignment constructor cannot be noexcept since the
-     * move constructor of zmq::message_t throws.
-     */
-    Array(Array&&) = default;
-    Array& operator=(Array&&) = default;
+    Array(void* ptr, const std::vector<unsigned int>& shape, const std::string& dtype):
+        ptr_(ptr),
+        shape_(shape),
+        dtype_(dtype) {}
 
     /*
      * Convert the data held in msg:message_t object to std::vector<T>.
@@ -159,8 +133,7 @@ public:
     std::vector<T> as() {
         if (!check_type_by_string<T>(dtype_)) throw std::bad_cast();
 
-        auto ptr = reinterpret_cast<const T*>(msg_.data());
-        // TODO: avoid the copy
+        auto ptr = reinterpret_cast<const T*>(ptr_);
         return std::vector<T>(ptr, ptr + size());
     }
 
@@ -319,7 +292,18 @@ private:
  * There are two different types of array: one is msgpack::ARRAY which is
  * encapsulated by Object and another is byte array which is encapsulated in class Array.
  */
-struct kb_data {
+class kb_data {
+
+    std::vector<zmq::message_t> mpmsg_; // maintain the lifetime of data
+    msgpack::object_handle handle_; // maintain the lifetime of data
+
+public:
+    kb_data() = default;
+
+    // not copyable since array is not copyable
+//    kb_data(const kb_data&) = delete;
+//    kb_data& operator=(const kb_data&) = delete;
+
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
 
@@ -327,16 +311,20 @@ struct kb_data {
         return msgpack_data.at(key);
     }
 
-    std::size_t size() { return size_; }
-    void setSize(std::size_t s) { size_ = s; }
+    std::size_t size() {
+        std::size_t size_ = 0;
+        for (auto& m: mpmsg_) size_ += m.size();
+        return size_;
+    }
 
-private:
-    // size_ is the sum of the sizes of the received zmq messages.
-    std::size_t size_;
+    void append_msg(zmq::message_t&& msg) {
+        mpmsg_.push_back(std::move(msg));
+    }
+
+    void append_handle(msgpack::object_handle&& oh) {
+        handle_ = std::move(oh);
+    }
 };
-
-using MsgObjectMap = std::map<std::string, msgpack::object>;
-using MultipartMsg = std::deque<zmq::message_t>;
 
 /*
  * Parse a single message packed by msgpack using "visitor".
@@ -363,20 +351,6 @@ std::string parseMultipartMsg(const MultipartMsg& mpmsg, bool boundary=true) {
         output.append(parseMsg(msg));
     }
     return output;
-}
-
-/*
- * Unpack a dictionary like message.
- *
- * The msg must be moved into the function and destroyed here.
- *
- * Exceptions:
- * std::bad_cast if the msg cannot be converted to std::map<std::string, msgpack::object>
- */
-MsgObjectMap unpack_msg(zmq::message_t&& msg) {
-    msgpack::object_handle oh;
-    msgpack::unpack(oh, static_cast<const char*>(msg.data()), msg.size());
-    return oh.get().as<MsgObjectMap>();
 }
 
 /*
@@ -449,36 +423,44 @@ public:
         if (mpmsg.empty()) return data_pkg;
         if (mpmsg.size() % 2)
             throw std::runtime_error("The multipart message is expected to "
-                                     "contain even number of messages!");
+                                     "contain (header, data) pairs!");
 
         kb_data kbdt;
         std::string source;
-        std::size_t byte_recv = 0;
         bool is_initialized = false;
         auto it = mpmsg.begin();
         while(it != mpmsg.end()) {
             // the header must contain "source" and "content"
-            auto header_unpacked = unpack_msg(std::move(*it));
+            msgpack::object_handle oh_header;
+            msgpack::unpack(oh_header, static_cast<const char*>(it->data()), it->size());
+            auto header_unpacked = oh_header.get().as<MsgObjectMap>();
+
             source = header_unpacked.at("source").as<std::string>();
             auto content = header_unpacked.at("content").as<std::string>();
 
             // the next message is the content (data)
-            std::advance(it, 1);
             if (content == "msgpack") {
                 if (!is_initialized)
                     is_initialized = true;
-                else {
-                    kbdt.setSize(byte_recv);
+                else
                     data_pkg.insert(std::make_pair(std::move(source), std::move(kbdt)));
-                    kbdt = {};
-                    byte_recv = 0;
-                }
-                byte_recv += it->size();
-                auto data_unpacked = unpack_msg(std::move(*it));
+
+                kbdt.append_msg(std::move(*it));
+                std::advance(it, 1);
+
+                msgpack::object_handle oh_data;
+                msgpack::unpack(oh_data, static_cast<const char*>(it->data()), it->size());
+                auto data_unpacked = oh_data.get().as<MsgObjectMap>();
+
                 for (auto &dt : data_unpacked)
                     kbdt.msgpack_data.insert(std::make_pair(dt.first, dt.second.as<Object>()));
+
+                kbdt.append_handle(std::move(oh_data));
+
             } else if ((content == "array" || content == "ImageData")) {
-                byte_recv += it->size();
+                kbdt.append_msg(std::move(*it));
+                std::advance(it, 1);
+
                 auto shape = header_unpacked.at("shape").as<std::vector<unsigned int>>();
                 auto dtype = header_unpacked.at("dtype").as<std::string>();
                 // convert the python type to the corresponding c++ type
@@ -486,15 +468,15 @@ public:
 
                 kbdt.array.insert(std::make_pair(
                     header_unpacked.at("path").as<std::string>(),
-                    Array(std::move(*it), std::move(shape), std::move(dtype))));
+                    Array(it->data(), shape, dtype)));
             } else {
                 throw std::runtime_error("Unknown data content: " + content);
             }
 
+            kbdt.append_msg(std::move(*it));
             std::advance(it, 1);
         }
 
-        kbdt.setSize(byte_recv);
         data_pkg.insert(std::make_pair(std::move(source), std::move(kbdt)));
 
         return data_pkg;
@@ -503,7 +485,7 @@ public:
     /*
      * Parse the next multipart message.
      *
-     * Note:: this function consumes data!!!
+     * Note:: this member function consumes data!!!
      */
     std::string showMsg() {
         sendRequest();
@@ -514,7 +496,7 @@ public:
     /*
      * Parse the data structure of the received kb_data.
      *
-     * Note:: this function consumes data!!!
+     * Note:: this member function consumes data!!!
      */
     std::string showNext() {
         auto data_pkg = next();
@@ -522,8 +504,7 @@ public:
         std::stringstream ss;
         for (auto& data : data_pkg) {
             ss << "source: " << data.first << "\n";
-            ss << "Total bytes received: " << data.second.size()
-               << " (header messages are excluded) \n\n";
+            ss << "Total bytes received: " << data.second.size() << "\n\n";
 
             ss << "path, type, container data type, container shape\n";
             for (auto& v : data.second.msgpack_data) {
@@ -532,21 +513,17 @@ public:
                 ss << v.first << ", ";
 
                 if (type_id == msgpack::type::object_type::NIL) { // msgpack::NIL
-                    ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
+                    ss << msgpack_type_map[type_id] << "\n";
+
                 } else if (type_id == msgpack::type::object_type::ARRAY ) { // msgpack::ARRAY
                     int size = v.second.get().via.array.size;
                     ss << msgpack_type_map[type_id] << ", ";
                     if (!size) {
-                        ss << "Empty" << " (Check...unexpected data type!)\n";;
+                        // TODO: is it possible get the data type of an empty array?
+                        ss << ", [0]\n";
                     } else {
-                        if (v.first == "image.passport") {
-//                            ss << v.second.get() << "\n";
-                            // TODO: check the array of string
-                            ss << "string" << ", [" << size << "]\n";
-                        } else {
-                            msgpack::type::object_type type_id_ = v.second.get().via.array.ptr[1].type;
-                            ss << ", [" << size << "]\n";
-                        }
+                        msgpack::type::object_type etype_id = v.second.get().via.array.ptr[0].type;
+                        ss << msgpack_type_map[etype_id] << ", [" << size << "]\n";
                     }
 
                 } else if (type_id == msgpack::type::object_type::MAP) { // msgpack::MAP
@@ -568,8 +545,6 @@ public:
                 ss << v.first << ": " << "Array" << ", " << v.second.dtype()
                    << ", " << vector2string(v.second.shape()) << "\n";
             }
-
-            ss << "\n";
         }
 
         return ss.str();
