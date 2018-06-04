@@ -437,7 +437,6 @@ public:
             msgpack::unpack(oh_header, static_cast<const char*>(it->data()), it->size());
             auto header_unpacked = oh_header.get().as<MsgObjectMap>();
 
-            source = header_unpacked.at("source").as<std::string>();
             auto content = header_unpacked.at("content").as<std::string>();
 
             // the next message is the content (data)
@@ -445,7 +444,7 @@ public:
                 if (!is_initialized)
                     is_initialized = true;
                 else
-                    data_pkg.insert(std::make_pair(std::move(source), std::move(kbdt)));
+                    data_pkg.insert(std::make_pair(source, std::move(kbdt)));
 
                 kbdt.append_msg(std::move(*it));
                 std::advance(it, 1);
@@ -475,11 +474,13 @@ public:
                 throw std::runtime_error("Unknown data content: " + content);
             }
 
+            source = header_unpacked.at("source").as<std::string>();
+
             kbdt.append_msg(std::move(*it));
             std::advance(it, 1);
         }
 
-        data_pkg.insert(std::make_pair(std::move(source), std::move(kbdt)));
+        data_pkg.insert(std::make_pair(source, std::move(kbdt)));
 
         return data_pkg;
     }
@@ -547,6 +548,8 @@ public:
                 ss << v.first << ": " << "Array" << ", " << v.second.dtype()
                    << ", " << vector2string(v.second.shape()) << "\n";
             }
+
+            ss << "\n";
         }
 
         return ss.str();
