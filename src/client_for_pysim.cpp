@@ -5,7 +5,7 @@
  * To run the server, use
  *
  *      from karabo_bridge import start_gen
- *      start_gen(1234)
+ *      start_gen(1234, nsources=2)
  *
  * Author: Jun Zhu, zhujun981661@gmail.com
  *

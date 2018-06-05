@@ -6,7 +6,7 @@
 
  - [ZeroMQ](http://zeromq.org/) >= [4.2.5](https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.zip)
  - [cppzmq](https://github.com/zeromq/cppzmq) >= [4.2.2](https://github.com/zeromq/cppzmq/archive/v4.2.2.zip)
- - [msgpack](https://msgpack.org/index.html) >= [2.1.5](https://github.com/msgpack/msgpack-c/releases/download)
+ - [msgpack](https://msgpack.org/index.html) >= [2.1.5](https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.zip)
 
 ## Set up the environment
 
@@ -54,7 +54,7 @@ Make sure you have `g++ 4.8.5` installed in your own PC to be in line with the c
 
 ```py
 from karabo_bridge import start_gen
-start_gen(1234)
+start_gen(1234, nsources=2)
 ```
 
 then
@@ -124,27 +124,29 @@ Use `showNext()` member function to return a string which tells you the data str
 You will see something like
 
 ```md
-data.image.bitsPerPixel: uint64_t
-data.image.dimensionScales: string
-data.image.dimensionTypes: msgpack::ARRAY, uint64_t, [2]
+source: SPB_DET_AGIPD1M-1/DET/detector
+Total bytes received: 130025932
+
+path, type, container data type, container shape
+detector.data, MSGPACK_OBJECT_BIN, byte, [416]
 ...
-data.image.header: NIL
-data.image.rOIOffsets: msgpack::ARRAY, uint64_t, [2]
-metadata.ignored_keys: msgpack::ARRAY, NIL, [0]
-metadata.source: string
-metadata.timestamp: double
-metadata.timestamp.frac: string
-metadata.timestamp.sec: string
-metadata.timestamp.tid: uint64_t
-data.image.data: Array, uint32, [1024, 1024]
-Total bytes received: 67111554
+header.trainId, uint64_t
+image.passport, MSGPACK_OBJECT_ARRAY, string, [3]
+metadata.source, string
+metadata.timestamp, double
+metadata.timestamp.frac, string
+...
+image.cellId: Array, uint16_t, [31]
+image.data: Array, uint16_t, [31, 16, 512, 128]
+...
 ```
 
 #### next()
 
-Use `next()` member function to return a `karabo_bridge::kb_data` object
+Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source.
 ```c++
-struct kb_data {
+class kb_data {
+public:
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
     
