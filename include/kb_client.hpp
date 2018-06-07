@@ -102,18 +102,6 @@ class Array {
     std::vector<unsigned int> shape_; // shape of the array
     std::string dtype_; // data type
 
-    std::size_t size() const {
-        auto max_size = std::numeric_limits<unsigned long long>::max();
-
-        std::size_t size = 1;
-        for (auto v : shape_) {
-            if (max_size/size < v)
-                throw std::overflow_error("Unmanageable array size!");
-            size *= v;
-        }
-
-        return size;
-    }
 public:
     Array() = default;
 
@@ -132,7 +120,6 @@ public:
     template<typename T>
     std::vector<T> as() {
         if (!check_type_by_string<T>(dtype_)) throw std::bad_cast();
-
         auto ptr = reinterpret_cast<const T*>(ptr_);
         return std::vector<T>(ptr, ptr + size());
     }
@@ -140,6 +127,29 @@ public:
     std::vector<unsigned int> shape() const { return shape_; }
 
     std::string dtype() const { return dtype_; }
+
+    // Return a pointer to the held array data, avoid the copy.
+    const void* data () const { return ptr_; }
+
+    // Return the size of the flattened data.
+    //
+    // It is not good to set the size in the constructor since it might
+    // throw.
+    //
+    // Exceptions:
+    // std::overflow_error: is the size of the data overflows.
+    std::size_t size(){
+        auto max_size = std::numeric_limits<unsigned long long>::max();
+
+        std::size_t size = 1;
+        for (auto& v : shape_) {
+            if (max_size/size < v)
+                throw std::overflow_error("Unmanageable array size!");
+            size *= v;
+        }
+
+        return size;
+    }
 };
 
 } // karabo_bridge
