@@ -165,6 +165,8 @@ auto dataImageDimension = result["data.image.dimensions"].as<std::vector<uint64_
 std::vector<uint64_t> imageData = result.array["data.image.data"].as<uint64_t>()
 
 // Access the data in Array object without copy
-auto ptr = reinterpret_cast<const uint16_t*>(data.array["image.data"].data());
+void* ptr = data.array["image.data"].data();
+// or
+auto ptr = data.array["image.data"].data<uint16_t>();
 ```
 
