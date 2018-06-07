@@ -302,12 +302,7 @@ private:
  * There are two different types of array: one is msgpack::ARRAY which is
  * encapsulated by Object and another is byte array which is encapsulated in class Array.
  */
-class kb_data {
-
-    std::vector<zmq::message_t> mpmsg_; // maintain the lifetime of data
-    msgpack::object_handle handle_; // maintain the lifetime of data
-
-public:
+struct kb_data {
     kb_data() = default;
 
     kb_data(const kb_data&) = delete;
@@ -336,6 +331,10 @@ public:
     void append_handle(msgpack::object_handle&& oh) {
         handle_ = std::move(oh);
     }
+
+private:
+    std::vector<zmq::message_t> mpmsg_; // maintain the lifetime of data
+    msgpack::object_handle handle_; // maintain the lifetime of data
 };
 
 /*
