@@ -143,10 +143,9 @@ image.data: Array, uint16_t, [31, 16, 512, 128]
 
 #### next()
 
-Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source.
+Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and kb_data is
 ```c++
-class kb_data {
-public:
+struct kb_data {
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
     
@@ -154,8 +153,6 @@ public:
     
     std::size_t size();
 };
-
-karabo_bridge::kb_data result = client.next();
 ```
 You can visit the data members by
 ```c++
@@ -166,5 +163,8 @@ auto dataImageDimension = result["data.image.dimensions"].as<std::vector<uint64_
 // Access the data member `array` which is the "array" or "ImageData" represented by char arrays
 // Note:: you are responsible to give the correct data type, otherwise it leads to undefined behavior!
 std::vector<uint64_t> imageData = result.array["data.image.data"].as<uint64_t>()
+
+// Access the data in Array object without copy
+auto ptr = reinterpret_cast<const uint16_t*>(data.array["image.data"].data());
 ```
 
