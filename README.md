@@ -164,3 +164,13 @@ void* ptr = data.array["image.data"].data();
 auto ptr = data.array["image.data"].data<uint16_t>();
 ```
 
+## Tools
+
+#### glimpse
+
+This small tool can be used to check the data structure from the server. Actually, it simply call the `showNext()` member function continuously.
+
+```sh
+build/glimpse tcp://localhost:1234
+```
+

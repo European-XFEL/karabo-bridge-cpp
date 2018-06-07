@@ -30,7 +30,8 @@ endif()
 
 add_executable(run1 src/client_for_pysim.cpp include/kb_client.hpp)
 add_executable(run2 src/client_for_smlt_camera.cpp)
-foreach(target run1 run2)
+add_executable(glimpse src/glimpse.cpp)
+foreach(target run1 run2 glimpse)
     target_link_libraries(${target} ${zmq_LIBRARY})
 endforeach()
 
