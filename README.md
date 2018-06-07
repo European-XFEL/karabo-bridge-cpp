@@ -50,7 +50,7 @@ Make sure you have `g++ 4.8.5` installed in your own PC to be in line with the c
 
 ## Run the examples
 
-- For [example1](./src/client_for_pysim.cpp), you will need to have a Python simulated server running in a Screen:
+- For [example1](./src/client_for_pysim.cpp), you will need to have a Python simulated server ([karabo-bridge-py]()) running in the background (e.g. a Screen session):
 
 ```py
 from karabo_bridge import start_gen
@@ -61,12 +61,6 @@ then
 
 ```sh
 build/run1
-```
-
-- For [example2](./src/client_for_smlt_camera.cpp), you will need to set up a Karabo device server with LimaSimulatedCamera and PipeToZeroMQ devices, then
-
-```sh
-build/run2
 ```
 
 ## How to use
