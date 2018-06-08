@@ -128,8 +128,12 @@ public:
 
     std::string dtype() const { return dtype_; }
 
-    // Return a pointer to the held array data, avoid the copy.
-    const void* data () const { return ptr_; }
+    // Return a casted pointer to the held array data.
+    template<typename T>
+    T* data() const { return reinterpret_cast<T*>(ptr_); }
+
+    // Return a void pointer to the held array data.
+    void* data() const { return ptr_; }
 
     // Return the size of the flattened data.
     //

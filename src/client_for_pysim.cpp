@@ -70,7 +70,7 @@ int main (int argc, char* argv[]) {
             auto image_data = data.array["image.data"].as<uint16_t>();
             for (auto& v : image_data) { assert(v >= 1500 && v <= 1600); }
 
-            auto ptr = reinterpret_cast<const uint16_t*>(data.array["image.data"].data());
+            auto ptr = data.array["image.data"].data<uint16_t>();
             for (auto ptr_end = ptr + data.array["image.data"].size(); ptr != ptr_end; ++ptr) {
                 assert(*ptr >= 1500 && *ptr <= 1600);
             }
