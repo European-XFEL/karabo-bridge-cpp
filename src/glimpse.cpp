@@ -4,7 +4,7 @@
  * To run, for example, type
  *
  * show data structure: glimpse tcp://localhost:1234
- * show message structure: glimpse tcp://localhost:1234 1 (or any non-zero value)
+ * show message structure: glimpse tcp://localhost:1234 m (or M)
  *
  * Author: Jun Zhu, zhujun981661@gmail.com
  *
