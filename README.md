@@ -168,9 +168,12 @@ auto ptr = data.array["image.data"].data<uint16_t>();
 
 #### glimpse
 
-This small tool can be used to check the data structure from the server. Actually, it simply call the `showNext()` member function continuously.
-
+To show the data structure:
 ```sh
 build/glimpse tcp://localhost:1234
+```
+To show the message structure:
+```sh
+build/glimpse tcp://localhost:1234 m
 ```
 
