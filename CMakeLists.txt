@@ -38,10 +38,12 @@ endforeach()
 enable_testing()
 add_executable(test1 tests/test_version)
 add_executable(test2 tests/test_multipart_msg.cpp)
-foreach(target test1 test2)
+add_executable(test3 tests/test_anyobject.cpp)
+foreach(target test1 test2 test3)
     target_link_libraries(${target} ${zmq_LIBRARY})
 endforeach()
 
 add_test(TEST_VERSION test1)
 add_test(TEST_MULTIPART_MSG test2)
+add_test(TEST_ANYOBJECT test2)
 

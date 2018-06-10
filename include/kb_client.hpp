@@ -66,6 +66,51 @@ bool check_type_by_string(const std::string& type_string) {
     return (type_string == "double" && std::is_same<T, double>::value);
 }
 
+
+struct bad_any_cast : public std::bad_cast {
+    virtual const char * what() const noexcept override {
+        return "karabo_bridge::AnyObject cast failed!";
+    }
+};
+
+
+class AnyObject {
+public:
+    AnyObject() : ptr_(nullptr) {};
+
+    struct placeholder {
+        virtual ~placeholder() = default;
+        virtual const std::type_info& type() const = 0;
+    };
+
+    template<typename T>
+    struct holder : public placeholder {
+        explicit holder(const T& value) : val(value) {}
+        T val;
+
+        virtual const std::type_info& type() const override {
+            return typeid(T);
+        }
+    };
+
+    template<typename T>
+    explicit AnyObject(T const& value) : ptr_(new holder<T>(value)) {}
+
+    // Not copy assignable
+    template<typename T>
+    AnyObject& operator=(T const&) = delete;
+
+    template<typename Container, typename T>
+    T as() {
+        if (ptr_->type() != typeid(Container)) throw bad_any_cast();
+        return static_cast<holder<Container>*>(ptr_)->val.as<T>();
+    }
+
+private:
+    placeholder* ptr_;
+
+};
+
 /*
  * A container hold a msgpack::object for deferred unpack.
  */
@@ -155,6 +200,7 @@ public:
         return size;
     }
 };
+
 
 } // karabo_bridge
 
@@ -459,7 +505,6 @@ public:
                 else
                     data_pkg.insert(std::make_pair(source, std::move(kbdt)));
 
-                kbdt.append_msg(std::move(*it));
                 std::advance(it, 1);
 
                 msgpack::object_handle oh_data;
