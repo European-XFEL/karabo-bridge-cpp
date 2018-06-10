@@ -100,6 +100,7 @@ public:
 class Array {
     void* ptr_; // pointer to the data chunk
     std::vector<unsigned int> shape_; // shape of the array
+    std::size_t size_; // size of the flattened array
     std::string dtype_; // data type
 
 public:
@@ -109,7 +110,18 @@ public:
     Array(void* ptr, const std::vector<unsigned int>& shape, const std::string& dtype):
         ptr_(ptr),
         shape_(shape),
+        size_(
+            [&shape]() {
+                std::size_t size = 1;
+                // Overflow is not expected since otherwise zmq::message_t
+                // cannot hold the data.
+                for (auto& v : shape) size *= v;
+                return size;
+            }()
+        ),
         dtype_(dtype) {}
+
+    std::size_t size() const { return size_; }
 
     /*
      * Convert the data held in msg:message_t object to std::vector<T>.
@@ -134,26 +146,6 @@ public:
 
     // Return a void pointer to the held array data.
     void* data() const { return ptr_; }
-
-    // Return the size of the flattened data.
-    //
-    // It is not good to set the size in the constructor since it might
-    // throw.
-    //
-    // Exceptions:
-    // std::overflow_error: is the size of the data overflows.
-    std::size_t size(){
-        auto max_size = std::numeric_limits<unsigned long long>::max();
-
-        std::size_t size = 1;
-        for (auto& v : shape_) {
-            if (max_size/size < v)
-                throw std::overflow_error("Unmanageable array size!");
-            size *= v;
-        }
-
-        return size;
-    }
 };
 
 } // karabo_bridge
