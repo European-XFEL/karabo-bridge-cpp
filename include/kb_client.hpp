@@ -378,6 +378,19 @@ std::string vector2string(const std::vector<T>& vec) {
 }
 
 /*
+ * Convert the python type to the corresponding C++ type
+ */
+void toCppType(std::string& dtype) {
+    if (dtype.find("int")
+        != std::string::npos) dtype.append("_t");
+    else if (dtype == "float32")
+        dtype = "float";
+    else if (dtype == "float64")
+        dtype = "double";
+}
+
+
+/*
  * Karabo-bridge Client class.
  */
 class Client {
@@ -508,9 +521,7 @@ public:
 
                 auto shape = header_unpacked.at("shape").as<std::vector<unsigned int>>();
                 auto dtype = header_unpacked.at("dtype").as<std::string>();
-                // convert the python type to the corresponding c++ type
-                if (dtype.find("int") != std::string::npos) dtype.append("_t");
-                else if (dtype == "float32") dtype = "float";
+                toCppType(dtype);
 
                 kbdt.array.insert(std::make_pair(
                     header_unpacked.at("path").as<std::string>(),
