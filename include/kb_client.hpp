@@ -140,7 +140,10 @@ public:
 
     // Return a casted pointer to the held array data.
     template<typename T>
-    T* data() const { return reinterpret_cast<T*>(ptr_); }
+    T* data() const {
+        if (!check_type_by_string<T>(dtype_)) throw std::bad_cast();
+        return reinterpret_cast<T*>(ptr_);
+    }
 
     // Return a void pointer to the held array data.
     void* data() const { return ptr_; }
