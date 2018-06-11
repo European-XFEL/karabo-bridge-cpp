@@ -411,9 +411,9 @@ class Client {
     }
 
     /*
-     *
+     * Add formatted output of an Object to the stringstream.
      */
-    void prittyStream(const std::pair<std::string, Object>& v, std::stringstream& ss) {
+    void prettyStream(const std::pair<std::string, Object>& v, std::stringstream& ss) {
         msgpack::type::object_type type_id = v.second.get().type;
 
         ss << v.first << ", ";
@@ -555,9 +555,9 @@ public:
             ss << "Total bytes received: " << data.second.size() << "\n\n";
 
             ss << "path, type, container data type, container shape\n";
-            for (auto&v : data.second.meta_data) prittyStream(v, ss);
+            for (auto&v : data.second.meta_data) prettyStream(v, ss);
 
-            for (auto& v : data.second.msgpack_data) prittyStream(v, ss);
+            for (auto& v : data.second.msgpack_data) prettyStream(v, ss);
 
             for (auto &v : data.second.array) {
                 ss << v.first << ": " << "Array" << ", " << v.second.dtype()
