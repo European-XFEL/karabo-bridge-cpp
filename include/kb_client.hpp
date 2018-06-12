@@ -47,21 +47,88 @@ std::map<msgpack::type::object_type, std::string> msgpack_type_map = {
     {msgpack::type::object_type::EXT, "MSGPACK_OBJECT_EXT"}
 };
 
+// Define exceptions to ease debugging
+class type_mismatch_error : public std::exception {
+    std::string msg_;
+public:
+    explicit type_mismatch_error(const std::string& msg) : msg_(msg) {}
+
+    virtual const char* what() const throw() {
+        return msg_.c_str() ;
+    }
+};
+
+class type_mismatch_error_array : public type_mismatch_error {
+public:
+    explicit type_mismatch_error_array(const std::string& msg)
+        : type_mismatch_error(msg)
+    {}
+};
+
+class type_mismatch_error_msgpack : public type_mismatch_error {
+public:
+    explicit type_mismatch_error_msgpack(const std::string& msg)
+        : type_mismatch_error(msg)
+    {}
+};
+
+class cast_error_msgpack : public std::bad_cast {
+    virtual const char* what() const throw() {
+        return "Mismatched container type or container data type!";
+    }
+};
+
 /*
- * Use to check data type before casting an Array object.
+ * Use to check data type before casting an Object object.
+ *
+ * Implicit type conversion of scalar data (including string) is not allowed.
  */
 template <typename T>
-bool check_type_by_string(const std::string& type_string) {
-    if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return true;
-    if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return true;
-    if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return true;
-    if (type_string == "uint8_t" && std::is_same<T, uint8_t>::value) return true;
-    if (type_string == "int64_t" && std::is_same<T, int64_t>::value) return true;
-    if (type_string == "int32_t" && std::is_same<T, int32_t>::value) return true;
-    if (type_string == "int16_t" && std::is_same<T, int16_t>::value) return true;
-    if (type_string == "int8_t" && std::is_same<T, int8_t>::value) return true;
-    if (type_string == "float" && std::is_same<T, float>::value) return true;
-    return (type_string == "double" && std::is_same<T, double>::value);
+void check_type_by_idx(msgpack::type::object_type idx) {
+    // cannot check containers, NIL?
+    if (idx == msgpack::type::object_type::NIL ||
+        idx == msgpack::type::object_type::ARRAY ||
+        idx == msgpack::type::object_type::MAP ||
+        idx == msgpack::type::object_type::BIN ||
+        idx == msgpack::type::object_type::EXT) return;
+
+    if (idx == msgpack::type::object_type::BOOLEAN
+        && std::is_same<T, bool>::value) return;
+    if (idx == msgpack::type::object_type::POSITIVE_INTEGER
+        && std::is_same<T, uint64_t>::value) return;
+    if (idx == msgpack::type::object_type::NEGATIVE_INTEGER
+        && std::is_same<T, int64_t>::value) return;
+    if (idx == msgpack::type::object_type::FLOAT32
+        && std::is_same<T, float>::value) return;
+    if (idx == msgpack::type::object_type::FLOAT64
+        && std::is_same<T, double>::value) return;
+    if (idx == msgpack::type::object_type::STR
+        && std::is_same<T, std::string>::value) return;
+
+    throw type_mismatch_error_msgpack("The expected type is "
+                                      + msgpack_type_map.at(idx) + "!");
+}
+
+/*
+ * Use to check data type before casting an Array object.
+ *
+ * Implicit type conversion is not allowed.
+ */
+template <typename T>
+void check_type_by_string(const std::string& type_string) {
+    if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return;
+    if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return;
+    if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return;
+    if (type_string == "uint8_t" && std::is_same<T, uint8_t>::value) return;
+    if (type_string == "int64_t" && std::is_same<T, int64_t>::value) return;
+    if (type_string == "int32_t" && std::is_same<T, int32_t>::value) return;
+    if (type_string == "int16_t" && std::is_same<T, int16_t>::value) return;
+    if (type_string == "int8_t" && std::is_same<T, int8_t>::value) return;
+    if (type_string == "float" && std::is_same<T, float>::value) return;
+    if (type_string == "double" && std::is_same<T, double>::value) return;
+    if (type_string == "bool" && std::is_same<T, bool>::value) return;
+
+    throw type_mismatch_error_array("The expected type is " + type_string + "!");
 }
 
 /*
@@ -97,10 +164,18 @@ public:
      * Cast the held msgpack::object to a given type.
      *
      * Exceptions:
-     * std::bad_cast if the cast fails.
+     * type_mismatch_error_msgpack: if scalar type mismatches
+     * cast_error_msgpack: if cast (non-scalar except NIL) fails
      */
     template<typename T>
-    T as() const { return value_.as<T>(); }
+    T as() const {
+        check_type_by_idx<T>(value_.type);
+        try {
+            return value_.as<T>();
+        } catch(std::bad_cast& e) {
+            throw cast_error_msgpack();
+        }
+    }
 
     std::string dtype() const { return dtype_; }
 
@@ -149,11 +224,11 @@ public:
      * Copy the data into a vector.
      *
      * Exceptions:
-     * std::bad_cast if the cast fails or the types do not match
+     * type_mismatch_error_array: if type mismatches
      */
     template<typename T>
     std::vector<T> as() const {
-        if (!check_type_by_string<T>(dtype_)) throw std::bad_cast();
+        check_type_by_string<T>(dtype_);
         auto ptr = reinterpret_cast<const T*>(ptr_);
         return std::vector<T>(ptr, ptr + size());
     }
@@ -162,10 +237,15 @@ public:
 
     std::string dtype() const { return dtype_; }
 
-    // Return a casted pointer to the held array data.
+    /*
+     * Return a casted pointer to the held array data.
+     *
+     * Exceptions:
+     * type_mismatch_error_array: if type mismatches
+     */
     template<typename T>
     T* data() const {
-        if (!check_type_by_string<T>(dtype_)) throw std::bad_cast();
+        check_type_by_string<T>(dtype_);
         return reinterpret_cast<T*>(ptr_);
     }
 
