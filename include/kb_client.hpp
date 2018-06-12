@@ -308,7 +308,7 @@ struct kb_data {
     kb_data(kb_data&&) = default;
     kb_data& operator=(kb_data&&) = default;
 
-    std::map<std::string, Object> meta_data;
+    std::map<std::string, Object> metadata;
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
 
@@ -500,7 +500,7 @@ public:
 
             // the next message is the content (data)
             if (content == "msgpack") {
-                kbdt.meta_data = header_unpacked.at("metadata").as<ObjectMap>();
+                kbdt.metadata = header_unpacked.at("metadata").as<ObjectMap>();
 
                 if (!is_initialized)
                     is_initialized = true;
@@ -566,7 +566,7 @@ public:
             ss << "Total bytes received: " << data.second.size() << "\n\n";
 
             ss << "path, type, container data type, container shape\n";
-            for (auto&v : data.second.meta_data) prettyStream(v, ss);
+            for (auto&v : data.second.metadata) prettyStream(v, ss);
 
             for (auto& v : data.second.msgpack_data) prettyStream(v, ss);
 

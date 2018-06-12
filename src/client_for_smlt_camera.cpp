@@ -39,8 +39,8 @@ int main (int argc, char* argv[]) {
         karabo_bridge::kb_data data(std::move(data_pkg.begin()->second));
         assert(data_pkg.begin()->first == "camera:output");
 
-        assert(data.meta_data["source"].as<std::string>() == "camera:output");
-        assert(data.meta_data["timestamp.tid"].as<std::uint64_t>() == 0);
+        assert(data.metadata["source"].as<std::string>() == "camera:output");
+        assert(data.metadata["timestamp.tid"].as<std::uint64_t>() == 0);
 
         assert(data["data.image.bitsPerPixel"].as<uint64_t>() == 32);
         assert(data["data.image.dimensionTypes"].as<std::vector<uint64_t>>() == std::vector<uint64_t>({0, 0}));

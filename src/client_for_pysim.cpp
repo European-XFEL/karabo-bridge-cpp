@@ -45,13 +45,13 @@ int main (int argc, char* argv[]) {
             karabo_bridge::kb_data data(std::move((it)->second));
             if (data_pkg.size() == 1) {
                 assert(it->first == "SPB_DET_AGIPD1M-1/DET/detector");
-                assert(data.meta_data["source"].as<std::string>() == "SPB_DET_AGIPD1M-1/DET/detector");
+                assert(data.metadata["source"].as<std::string>() == "SPB_DET_AGIPD1M-1/DET/detector");
             } else {
                 assert(it->first == "SPB_DET_AGIPD1M-1/DET/detector-" + std::to_string(ns++));
-                assert(data.meta_data["source"].as<std::string>() == "SPB_DET_AGIPD1M-1/DET/detector");
+                assert(data.metadata["source"].as<std::string>() == "SPB_DET_AGIPD1M-1/DET/detector");
             }
 
-            assert(data.meta_data["timestamp.tid"].as<uint64_t>() >= 10000000000);
+            assert(data.metadata["timestamp.tid"].as<uint64_t>() >= 10000000000);
 
             assert(data["header.pulseCount"].as<uint64_t>() == 64);
             assert(data["trailer.status"].as<uint64_t>() == 0);
