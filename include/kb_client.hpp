@@ -71,6 +71,7 @@ class Object {
     // msgpack::object has a shallow copy constructor
     msgpack::object value_;
     std::size_t size_;
+    std::string dtype_;
 
 public:
     Object() = default;  // must be default constructable
@@ -86,7 +87,8 @@ public:
                     return value.via.array.size;
                 return 1;
                 }()
-            )
+            ),
+        dtype_(msgpack_type_map.at(value.type))
     {}
 
     ~Object() = default;
@@ -100,11 +102,18 @@ public:
     template<typename T>
     T as() { return value_.as<T>(); }
 
-    msgpack::object get() const { return value_; }
-
-    std::string dtype() const { return msgpack_type_map.at(value_.type); }
+    std::string dtype() const { return dtype_; }
 
     std::size_t size() const { return size_; }
+
+    std::string subType() const {
+        if (!size_) return "";  // NIL
+        if (size_ == 1) return dtype_;
+        if (dtype_ == "MSGPACK_OBJECT_ARRAY") return msgpack_type_map.at(value_.via.array.ptr[0].type);
+        // TODO: should I give "char" or "unsigned char"?
+        if (dtype_ == "MSGPACK_OBJECT_BIN") return "byte";
+        return "unimplemented";
+    }
 };
 
 /*
@@ -442,36 +451,22 @@ class Client {
      * Add formatted output of an Object to the stringstream.
      */
     void prettyStream(const std::pair<std::string, Object>& v, std::stringstream& ss) {
-        msgpack::type::object_type type_id = v.second.get().type;
+        ss << v.first << ", " << v.second.dtype();
 
-        ss << v.first << ", ";
+        if (v.second.dtype() == "MSGPACK_OBJECT_ARRAY") { // msgpack::ARRAY
+            ss << ", " << v.second.subType() << ", [" << v.second.size() << "]\n";
 
-        if (type_id == msgpack::type::object_type::NIL) { // msgpack::NIL
-            ss << msgpack_type_map[type_id] << "\n";
+        } else if (v.second.dtype() == "MSGPACK_OBJECT_MAP") { // msgpack::MAP
+            ss << " (Check...unexpected data type!)\n";
 
-        } else if (type_id == msgpack::type::object_type::ARRAY ) { // msgpack::ARRAY
-            int size = v.second.get().via.array.size;
-            ss << msgpack_type_map[type_id] << ", ";
-            if (!size) {
-                // TODO: is it possible get the data type of an empty array?
-                ss << ", [0]\n";
-            } else {
-                msgpack::type::object_type etype_id = v.second.get().via.array.ptr[0].type;
-                ss << msgpack_type_map[etype_id] << ", [" << size << "]\n";
-            }
+        } else if (v.second.dtype() == "MSGPACK_OBJECT_BIN") { // msgpack::BIN
+            ss << ", " << v.second.subType() << ", [" << v.second.size() << "]\n";
 
-        } else if (type_id == msgpack::type::object_type::MAP) { // msgpack::MAP
-            ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
-
-        } else if (type_id == msgpack::type::object_type::BIN ) { // msgpack::BIN
-            int size = v.second.get().via.bin.size;
-            ss << msgpack_type_map[type_id] << ", " << "byte" << ", [" << size << "]\n";
-
-        } else if (type_id == msgpack::type::object_type::EXT) { // msgpack::EXT
-            ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
+        } else if (v.second.dtype() == "MSGPACK_OBJECT_EXT") { // msgpack::EXT
+            ss << " (Check...unexpected data type!)\n";
 
         } else {
-            ss << msgpack_type_map[v.second.get().type] << "\n";
+            ss << "\n";
         }
     }
 
