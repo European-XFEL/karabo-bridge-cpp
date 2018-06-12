@@ -70,11 +70,24 @@ bool check_type_by_string(const std::string& type_string) {
 class Object {
     // msgpack::object has a shallow copy constructor
     msgpack::object value_;
+    std::size_t size_;
 
 public:
     Object() = default;  // must be default constructable
 
-    explicit Object(const msgpack::object& value): value_(value) {}
+    explicit Object(const msgpack::object& value):
+        value_(value),
+        size_(
+            [&value]() -> std::size_t {
+                if (value.type == msgpack::type::object_type::NIL) return 0;
+                if (value.type == msgpack::type::object_type::ARRAY ||
+                        value.type == msgpack::type::object_type::MAP ||
+                        value.type == msgpack::type::object_type::BIN)
+                    return value.via.array.size;
+                return 1;
+                }()
+            )
+    {}
 
     ~Object() = default;
 
@@ -90,6 +103,8 @@ public:
     msgpack::object get() const { return value_; }
 
     std::string dtype() const { return msgpack_type_map.at(value_.type); }
+
+    std::size_t size() const { return size_; }
 };
 
 /*
