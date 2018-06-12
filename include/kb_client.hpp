@@ -100,7 +100,7 @@ public:
      * std::bad_cast if the cast fails.
      */
     template<typename T>
-    T as() { return value_.as<T>(); }
+    T as() const { return value_.as<T>(); }
 
     std::string dtype() const { return dtype_; }
 
@@ -146,13 +146,13 @@ public:
     std::size_t size() const { return size_; }
 
     /*
-     * Convert the data held in msg:message_t object to std::vector<T>.
+     * Copy the data into a vector.
      *
      * Exceptions:
      * std::bad_cast if the cast fails or the types do not match
      */
     template<typename T>
-    std::vector<T> as() {
+    std::vector<T> as() const {
         if (!check_type_by_string<T>(dtype_)) throw std::bad_cast();
         auto ptr = reinterpret_cast<const T*>(ptr_);
         return std::vector<T>(ptr, ptr + size());
@@ -340,7 +340,8 @@ struct kb_data {
         return msgpack_data.at(key);
     }
 
-    std::size_t size() {
+    // TODO: Make a new name for this member function
+    std::size_t size() const {
         std::size_t size_ = 0;
         for (auto& m: mpmsg_) size_ += m.size();
         return size_;
