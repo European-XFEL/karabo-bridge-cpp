@@ -28,6 +28,16 @@
 #include <type_traits>
 
 
+#ifdef __GNUC__
+#define DEPRECATED __attribute__ ((deprecated))
+#elif defined(_MSC_VER)
+#define DEPRECATED __declspec(deprecated)
+#else
+#define DEPRECATED
+#pragma message("DEPRECATED is not defined for this compiler")
+#endif
+
+
 namespace karabo_bridge {
 
 using MultipartMsg = std::deque<zmq::message_t>;
@@ -420,8 +430,12 @@ struct kb_data {
         return msgpack_data.at(key);
     }
 
-    // TODO: Make a new name for this member function
-    std::size_t size() const {
+    // Use bytesReceived for clarity
+    DEPRECATED std::size_t size() const {
+        return bytesReceived();
+    }
+
+    std::size_t bytesReceived() const {
         std::size_t size_ = 0;
         for (auto& m: mpmsg_) size_ += m.size();
         return size_;
@@ -654,7 +668,7 @@ public:
         std::stringstream ss;
         for (auto& data : data_pkg) {
             ss << "source: " << data.first << "\n";
-            ss << "Total bytes received: " << data.second.size() << "\n\n";
+            ss << "Total bytes received: " << data.second.bytesReceived() << "\n\n";
 
             ss << "path, type, container data type, container shape\n";
             for (auto&v : data.second.metadata) prettyStream(v, ss);
