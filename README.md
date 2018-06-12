@@ -137,9 +137,10 @@ image.data: Array, uint16_t, [31, 16, 512, 128]
 
 #### next()
 
-Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and kb_data is
+Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and `kb_data` is
 ```c++
 struct kb_data {
+    std::map<std::string, Ojbect> meta_data;
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
     

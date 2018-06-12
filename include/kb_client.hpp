@@ -30,8 +30,6 @@
 
 namespace karabo_bridge {
 
-using MsgObjectMap = std::map<std::string, msgpack::object>;
-
 using MultipartMsg = std::deque<zmq::message_t>;
 
 // map msgpack object types to strings
@@ -100,6 +98,7 @@ public:
 class Array {
     void* ptr_; // pointer to the data chunk
     std::vector<unsigned int> shape_; // shape of the array
+    std::size_t size_; // size of the flattened array
     std::string dtype_; // data type
 
 public:
@@ -109,7 +108,18 @@ public:
     Array(void* ptr, const std::vector<unsigned int>& shape, const std::string& dtype):
         ptr_(ptr),
         shape_(shape),
+        size_(
+            [&shape]() {
+                std::size_t size = 1;
+                // Overflow is not expected since otherwise zmq::message_t
+                // cannot hold the data.
+                for (auto& v : shape) size *= v;
+                return size;
+            }()
+        ),
         dtype_(dtype) {}
+
+    std::size_t size() const { return size_; }
 
     /*
      * Convert the data held in msg:message_t object to std::vector<T>.
@@ -130,30 +140,13 @@ public:
 
     // Return a casted pointer to the held array data.
     template<typename T>
-    T* data() const { return reinterpret_cast<T*>(ptr_); }
+    T* data() const {
+        if (!check_type_by_string<T>(dtype_)) throw std::bad_cast();
+        return reinterpret_cast<T*>(ptr_);
+    }
 
     // Return a void pointer to the held array data.
     void* data() const { return ptr_; }
-
-    // Return the size of the flattened data.
-    //
-    // It is not good to set the size in the constructor since it might
-    // throw.
-    //
-    // Exceptions:
-    // std::overflow_error: is the size of the data overflows.
-    std::size_t size(){
-        auto max_size = std::numeric_limits<unsigned long long>::max();
-
-        std::size_t size = 1;
-        for (auto& v : shape_) {
-            if (max_size/size < v)
-                throw std::overflow_error("Unmanageable array size!");
-            size *= v;
-        }
-
-        return size;
-    }
 };
 
 } // karabo_bridge
@@ -315,6 +308,7 @@ struct kb_data {
     kb_data(kb_data&&) = default;
     kb_data& operator=(kb_data&&) = default;
 
+    std::map<std::string, Object> meta_data;
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
 
@@ -384,6 +378,19 @@ std::string vector2string(const std::vector<T>& vec) {
 }
 
 /*
+ * Convert the python type to the corresponding C++ type
+ */
+void toCppType(std::string& dtype) {
+    if (dtype.find("int")
+        != std::string::npos) dtype.append("_t");
+    else if (dtype == "float32")
+        dtype = "float";
+    else if (dtype == "float64")
+        dtype = "double";
+}
+
+
+/*
  * Karabo-bridge Client class.
  */
 class Client {
@@ -416,6 +423,43 @@ class Client {
         return mpmsg;
     }
 
+    /*
+     * Add formatted output of an Object to the stringstream.
+     */
+    void prettyStream(const std::pair<std::string, Object>& v, std::stringstream& ss) {
+        msgpack::type::object_type type_id = v.second.get().type;
+
+        ss << v.first << ", ";
+
+        if (type_id == msgpack::type::object_type::NIL) { // msgpack::NIL
+            ss << msgpack_type_map[type_id] << "\n";
+
+        } else if (type_id == msgpack::type::object_type::ARRAY ) { // msgpack::ARRAY
+            int size = v.second.get().via.array.size;
+            ss << msgpack_type_map[type_id] << ", ";
+            if (!size) {
+                // TODO: is it possible get the data type of an empty array?
+                ss << ", [0]\n";
+            } else {
+                msgpack::type::object_type etype_id = v.second.get().via.array.ptr[0].type;
+                ss << msgpack_type_map[etype_id] << ", [" << size << "]\n";
+            }
+
+        } else if (type_id == msgpack::type::object_type::MAP) { // msgpack::MAP
+            ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
+
+        } else if (type_id == msgpack::type::object_type::BIN ) { // msgpack::BIN
+            int size = v.second.get().via.bin.size;
+            ss << msgpack_type_map[type_id] << ", " << "byte" << ", [" << size << "]\n";
+
+        } else if (type_id == msgpack::type::object_type::EXT) { // msgpack::EXT
+            ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
+
+        } else {
+            ss << msgpack_type_map[v.second.get().type] << "\n";
+        }
+    }
+
 public:
     Client(): ctx_(1), socket_(ctx_, ZMQ_REQ) {}
 
@@ -432,6 +476,7 @@ public:
      */
     std::map<std::string, kb_data> next() {
         std::map<std::string, kb_data> data_pkg;
+        using ObjectMap = std::map<std::string, Object>;
 
         sendRequest();
         MultipartMsg mpmsg = receiveMultipartMsg();
@@ -441,6 +486,7 @@ public:
                                      "contain (header, data) pairs!");
 
         kb_data kbdt;
+
         std::string source;
         bool is_initialized = false;
         auto it = mpmsg.begin();
@@ -448,12 +494,14 @@ public:
             // the header must contain "source" and "content"
             msgpack::object_handle oh_header;
             msgpack::unpack(oh_header, static_cast<const char*>(it->data()), it->size());
-            auto header_unpacked = oh_header.get().as<MsgObjectMap>();
+            auto header_unpacked = oh_header.get().as<ObjectMap>();
 
             auto content = header_unpacked.at("content").as<std::string>();
 
             // the next message is the content (data)
             if (content == "msgpack") {
+                kbdt.meta_data = header_unpacked.at("metadata").as<ObjectMap>();
+
                 if (!is_initialized)
                     is_initialized = true;
                 else
@@ -464,11 +512,7 @@ public:
 
                 msgpack::object_handle oh_data;
                 msgpack::unpack(oh_data, static_cast<const char*>(it->data()), it->size());
-                auto data_unpacked = oh_data.get().as<MsgObjectMap>();
-
-                for (auto &dt : data_unpacked)
-                    kbdt.msgpack_data.insert(std::make_pair(dt.first, dt.second.as<Object>()));
-
+                kbdt.msgpack_data = oh_data.get().as<ObjectMap>();
                 kbdt.append_handle(std::move(oh_data));
 
             } else if ((content == "array" || content == "ImageData")) {
@@ -477,8 +521,7 @@ public:
 
                 auto shape = header_unpacked.at("shape").as<std::vector<unsigned int>>();
                 auto dtype = header_unpacked.at("dtype").as<std::string>();
-                // convert the python type to the corresponding c++ type
-                if (dtype.find("int") != std::string::npos) dtype.append("_t");
+                toCppType(dtype);
 
                 kbdt.array.insert(std::make_pair(
                     header_unpacked.at("path").as<std::string>(),
@@ -523,39 +566,9 @@ public:
             ss << "Total bytes received: " << data.second.size() << "\n\n";
 
             ss << "path, type, container data type, container shape\n";
-            for (auto& v : data.second.msgpack_data) {
-                msgpack::type::object_type type_id = v.second.get().type;
+            for (auto&v : data.second.meta_data) prettyStream(v, ss);
 
-                ss << v.first << ", ";
-
-                if (type_id == msgpack::type::object_type::NIL) { // msgpack::NIL
-                    ss << msgpack_type_map[type_id] << "\n";
-
-                } else if (type_id == msgpack::type::object_type::ARRAY ) { // msgpack::ARRAY
-                    int size = v.second.get().via.array.size;
-                    ss << msgpack_type_map[type_id] << ", ";
-                    if (!size) {
-                        // TODO: is it possible get the data type of an empty array?
-                        ss << ", [0]\n";
-                    } else {
-                        msgpack::type::object_type etype_id = v.second.get().via.array.ptr[0].type;
-                        ss << msgpack_type_map[etype_id] << ", [" << size << "]\n";
-                    }
-
-                } else if (type_id == msgpack::type::object_type::MAP) { // msgpack::MAP
-                    ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
-
-                } else if (type_id == msgpack::type::object_type::BIN ) { // msgpack::BIN
-                    int size = v.second.get().via.bin.size;
-                    ss << msgpack_type_map[type_id] << ", " << "byte" << ", [" << size << "]\n";
-
-                } else if (type_id == msgpack::type::object_type::EXT) { // msgpack::EXT
-                    ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
-
-                } else {
-                    ss << msgpack_type_map[v.second.get().type] << "\n";
-                }
-            }
+            for (auto& v : data.second.msgpack_data) prettyStream(v, ss);
 
             for (auto &v : data.second.array) {
                 ss << v.first << ": " << "Array" << ", " << v.second.dtype()
