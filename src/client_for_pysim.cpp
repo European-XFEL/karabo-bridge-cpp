@@ -42,13 +42,13 @@ int main (int argc, char* argv[]) {
 
         int ns = 1; // The No. of source
         for (auto it = data_pkg.begin(); it != data_pkg.end(); ++it) {
-            karabo_bridge::kb_data data(std::move((it)->second));
+            karabo_bridge::kb_data data(std::move(it->second));
             if (data_pkg.size() == 1) {
                 assert(it->first == "SPB_DET_AGIPD1M-1/DET/detector");
-                assert(data.metadata["source"].as<std::string>() == "SPB_DET_AGIPD1M-1/DET/detector");
+                assert(data.metadata["source"].as<std::string>() == it->first);
             } else {
                 assert(it->first == "SPB_DET_AGIPD1M-1/DET/detector-" + std::to_string(ns++));
-                assert(data.metadata["source"].as<std::string>() == "SPB_DET_AGIPD1M-1/DET/detector");
+                assert(data.metadata["source"].as<std::string>() == it->first);
             }
 
             assert(data.metadata["timestamp.tid"].as<uint64_t>() >= 10000000000);

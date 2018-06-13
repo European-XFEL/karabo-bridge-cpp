@@ -446,12 +446,12 @@ struct kb_data {
     }
 
     void appendHandle(msgpack::object_handle&& oh) {
-        handle_ = std::move(oh);
+        handles_.push_back(std::move(oh));
     }
 
 private:
     std::vector<zmq::message_t> mpmsg_; // maintain the lifetime of data
-    msgpack::object_handle handle_; // maintain the lifetime of data
+    std::vector<msgpack::object_handle> handles_; // maintain the lifetime of data
 };
 
 /*
@@ -605,8 +605,6 @@ public:
 
             // the next message is the content (data)
             if (content == "msgpack") {
-                kbdt.metadata = header_unpacked.at("metadata").as<ObjectMap>();
-
                 if (!is_initialized)
                     is_initialized = true;
                 else
@@ -617,7 +615,9 @@ public:
 
                 msgpack::object_handle oh_data;
                 msgpack::unpack(oh_data, static_cast<const char*>(it->data()), it->size());
+                kbdt.metadata = header_unpacked.at("metadata").as<ObjectMap>();
                 kbdt.msgpack_data = oh_data.get().as<ObjectMap>();
+                kbdt.appendHandle(std::move(oh_header));
                 kbdt.appendHandle(std::move(oh_data));
 
             } else if ((content == "array" || content == "ImageData")) {
