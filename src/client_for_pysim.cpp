@@ -61,6 +61,7 @@ int main (int argc, char* argv[]) {
             data.metadata["timestamp.frac"].as<std::string>();
             try {
                 data.metadata["timestamp.sec"].as<char>();
+                assert(false);
             } catch (karabo_bridge::TypeMismatchErrorMsgpack& e) {
                 // expected exception
             }
@@ -73,6 +74,7 @@ int main (int argc, char* argv[]) {
             auto image_passport = data["image.passport"].as<std::vector<std::string>>();
             try {
                 auto image_passport_throw = data["image.passport"].as<std::vector<int64_t>>();
+                assert(false);
             } catch (karabo_bridge::CastErrorMsgpack& e) {
                 // expected exception
             }
