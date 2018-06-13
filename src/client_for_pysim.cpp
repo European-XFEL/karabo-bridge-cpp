@@ -55,13 +55,13 @@ int main (int argc, char* argv[]) {
             try {
                 data.metadata["timestamp.tid"].as<uint16_t>();
                 assert(false);
-            } catch (karabo_bridge::type_mismatch_error_msgpack& e) {
+            } catch (karabo_bridge::TypeMismatchErrorMsgpack& e) {
                 // expected exception
             }
             data.metadata["timestamp.frac"].as<std::string>();
             try {
                 data.metadata["timestamp.sec"].as<char>();
-            } catch (karabo_bridge::type_mismatch_error_msgpack& e) {
+            } catch (karabo_bridge::TypeMismatchErrorMsgpack& e) {
                 // expected exception
             }
 
@@ -73,7 +73,7 @@ int main (int argc, char* argv[]) {
             auto image_passport = data["image.passport"].as<std::vector<std::string>>();
             try {
                 auto image_passport_throw = data["image.passport"].as<std::vector<int64_t>>();
-            } catch (karabo_bridge::cast_error_msgpack& e) {
+            } catch (karabo_bridge::CastErrorMsgpack& e) {
                 // expected exception
             }
 
@@ -87,7 +87,7 @@ int main (int argc, char* argv[]) {
             auto train_id = data.array["image.trainId"].as<uint64_t>();
             try {
                 auto train_id_throw = data.array["image.trainId"].as<int64_t>();
-            } catch (karabo_bridge::type_mismatch_error_array& e) {
+            } catch (karabo_bridge::TypeMismatchErrorArray& e) {
                 // expected exception
             }
             for (auto v : train_id) assert(v >= 10000000000);

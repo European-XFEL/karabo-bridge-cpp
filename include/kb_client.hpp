@@ -58,31 +58,32 @@ std::map<msgpack::type::object_type, std::string> msgpack_type_map = {
 };
 
 // Define exceptions to ease debugging
-class type_mismatch_error : public std::exception {
+
+class TypeMismatchError : public std::exception {
     std::string msg_;
 public:
-    explicit type_mismatch_error(const std::string& msg) : msg_(msg) {}
+    explicit TypeMismatchError(const std::string& msg) : msg_(msg) {}
 
     virtual const char* what() const throw() {
         return msg_.c_str() ;
     }
 };
 
-class type_mismatch_error_array : public type_mismatch_error {
+class TypeMismatchErrorArray : public TypeMismatchError {
 public:
-    explicit type_mismatch_error_array(const std::string& msg)
-        : type_mismatch_error(msg)
+    explicit TypeMismatchErrorArray(const std::string& msg)
+        : TypeMismatchError(msg)
     {}
 };
 
-class type_mismatch_error_msgpack : public type_mismatch_error {
+class TypeMismatchErrorMsgpack : public TypeMismatchError {
 public:
-    explicit type_mismatch_error_msgpack(const std::string& msg)
-        : type_mismatch_error(msg)
+    explicit TypeMismatchErrorMsgpack(const std::string& msg)
+        : TypeMismatchError(msg)
     {}
 };
 
-class cast_error_msgpack : public std::bad_cast {
+class CastErrorMsgpack : public std::bad_cast {
     virtual const char* what() const throw() {
         return "Mismatched container type or container data type!";
     }
@@ -94,7 +95,7 @@ class cast_error_msgpack : public std::bad_cast {
  * Implicit type conversion of scalar data (including string) is not allowed.
  */
 template <typename T>
-void check_type_by_idx(msgpack::type::object_type idx) {
+void checkTypeByIndex(msgpack::type::object_type idx) {
     // cannot check containers, NIL?
     if (idx == msgpack::type::object_type::NIL ||
         idx == msgpack::type::object_type::ARRAY ||
@@ -115,8 +116,8 @@ void check_type_by_idx(msgpack::type::object_type idx) {
     if (idx == msgpack::type::object_type::STR
         && std::is_same<T, std::string>::value) return;
 
-    throw type_mismatch_error_msgpack("The expected type is "
-                                      + msgpack_type_map.at(idx) + "!");
+    throw TypeMismatchErrorMsgpack("The expected type is "
+                                   + msgpack_type_map.at(idx) + "!");
 }
 
 /*
@@ -125,7 +126,7 @@ void check_type_by_idx(msgpack::type::object_type idx) {
  * Implicit type conversion is not allowed.
  */
 template <typename T>
-void check_type_by_string(const std::string& type_string) {
+void checkTypeByString(const std::string& type_string) {
     if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return;
     if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return;
     if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return;
@@ -138,7 +139,7 @@ void check_type_by_string(const std::string& type_string) {
     if (type_string == "double" && std::is_same<T, double>::value) return;
     if (type_string == "bool" && std::is_same<T, bool>::value) return;
 
-    throw type_mismatch_error_array("The expected type is " + type_string + "!");
+    throw TypeMismatchErrorArray("The expected type is " + type_string + "!");
 }
 
 /*
@@ -174,16 +175,16 @@ public:
      * Cast the held msgpack::object to a given type.
      *
      * Exceptions:
-     * type_mismatch_error_msgpack: if scalar type mismatches
-     * cast_error_msgpack: if cast (non-scalar except NIL) fails
+     * TypeMismatchErrorMsgpack: if scalar type mismatches
+     * CastErrorMsgpack: if cast (non-scalar except NIL) fails
      */
     template<typename T>
     T as() const {
-        check_type_by_idx<T>(value_.type);
+        checkTypeByIndex<T>(value_.type);
         try {
             return value_.as<T>();
         } catch(std::bad_cast& e) {
-            throw cast_error_msgpack();
+            throw CastErrorMsgpack();
         }
     }
 
@@ -234,11 +235,11 @@ public:
      * Copy the data into a vector.
      *
      * Exceptions:
-     * type_mismatch_error_array: if type mismatches
+     * TypeMismatchErrorArray: if type mismatches
      */
     template<typename T>
     std::vector<T> as() const {
-        check_type_by_string<T>(dtype_);
+        checkTypeByString<T>(dtype_);
         auto ptr = reinterpret_cast<const T*>(ptr_);
         return std::vector<T>(ptr, ptr + size());
     }
@@ -251,11 +252,11 @@ public:
      * Return a casted pointer to the held array data.
      *
      * Exceptions:
-     * type_mismatch_error_array: if type mismatches
+     * TypeMismatchErrorArray: if type mismatches
      */
     template<typename T>
     T* data() const {
-        check_type_by_string<T>(dtype_);
+        checkTypeByString<T>(dtype_);
         return reinterpret_cast<T*>(ptr_);
     }
 
@@ -408,7 +409,6 @@ private:
 
 /*
  * Data structure presented to the user.
- * // TODO: implement simplified boost::any to improve interface and encapsulation
  *
  * There are two different types of array: one is msgpack::ARRAY which is
  * encapsulated by Object and another is byte array which is encapsulated in class Array.
@@ -441,11 +441,11 @@ struct kb_data {
         return size_;
     }
 
-    void append_msg(zmq::message_t&& msg) {
+    void appendMsg(zmq::message_t&& msg) {
         mpmsg_.push_back(std::move(msg));
     }
 
-    void append_handle(msgpack::object_handle&& oh) {
+    void appendHandle(msgpack::object_handle&& oh) {
         handle_ = std::move(oh);
     }
 
@@ -485,7 +485,7 @@ std::string parseMultipartMsg(const MultipartMsg& mpmsg, bool boundary=true) {
  * Convert a vector to a formatted string
  */
 template <typename T>
-std::string vector2string(const std::vector<T>& vec) {
+std::string vectorToString(const std::vector<T>& vec) {
     std::stringstream ss;
     ss << "[";
     for (std::size_t i=0; i<vec.size(); ++i) {
@@ -499,7 +499,7 @@ std::string vector2string(const std::vector<T>& vec) {
 /*
  * Convert the python type to the corresponding C++ type
  */
-void toCppType(std::string& dtype) {
+void toCppTypeString(std::string& dtype) {
     if (dtype.find("int")
         != std::string::npos) dtype.append("_t");
     else if (dtype == "float32")
@@ -612,21 +612,21 @@ public:
                 else
                     data_pkg.insert(std::make_pair(source, std::move(kbdt)));
 
-                kbdt.append_msg(std::move(*it));
+                kbdt.appendMsg(std::move(*it));
                 std::advance(it, 1);
 
                 msgpack::object_handle oh_data;
                 msgpack::unpack(oh_data, static_cast<const char*>(it->data()), it->size());
                 kbdt.msgpack_data = oh_data.get().as<ObjectMap>();
-                kbdt.append_handle(std::move(oh_data));
+                kbdt.appendHandle(std::move(oh_data));
 
             } else if ((content == "array" || content == "ImageData")) {
-                kbdt.append_msg(std::move(*it));
+                kbdt.appendMsg(std::move(*it));
                 std::advance(it, 1);
 
                 auto shape = header_unpacked.at("shape").as<std::vector<unsigned int>>();
                 auto dtype = header_unpacked.at("dtype").as<std::string>();
-                toCppType(dtype);
+                toCppTypeString(dtype);
 
                 kbdt.array.insert(std::make_pair(
                     header_unpacked.at("path").as<std::string>(),
@@ -637,7 +637,7 @@ public:
 
             source = header_unpacked.at("source").as<std::string>();
 
-            kbdt.append_msg(std::move(*it));
+            kbdt.appendMsg(std::move(*it));
             std::advance(it, 1);
         }
 
@@ -677,7 +677,7 @@ public:
 
             for (auto &v : data.second.array) {
                 ss << v.first << ": " << "Array" << ", " << v.second.dtype()
-                   << ", " << vector2string(v.second.shape()) << "\n";
+                   << ", " << vectorToString(v.second.shape()) << "\n";
             }
 
             ss << "\n";
