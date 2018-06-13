@@ -194,8 +194,7 @@ public:
     std::string subType() const {
         if (!size_) return "";  // scalar and NIL
         if (dtype_ == "MSGPACK_OBJECT_ARRAY") return msgpack_type_map.at(value_.via.array.ptr[0].type);
-        // TODO: should I give "char" or "unsigned char"?
-        if (dtype_ == "MSGPACK_OBJECT_BIN") return "byte";
+        if (dtype_ == "MSGPACK_OBJECT_BIN") return "char";
         return "unimplemented";
     }
 };
