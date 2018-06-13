@@ -52,11 +52,30 @@ int main (int argc, char* argv[]) {
             }
 
             assert(data.metadata["timestamp.tid"].as<uint64_t>() >= 10000000000);
+            try {
+                data.metadata["timestamp.tid"].as<uint16_t>();
+                assert(false);
+            } catch (karabo_bridge::TypeMismatchErrorMsgpack& e) {
+                // expected exception
+            }
+            data.metadata["timestamp.frac"].as<std::string>();
+            try {
+                data.metadata["timestamp.sec"].as<char>();
+            } catch (karabo_bridge::TypeMismatchErrorMsgpack& e) {
+                // expected exception
+            }
 
             assert(data["header.pulseCount"].as<uint64_t>() == 64);
             assert(data["trailer.status"].as<uint64_t>() == 0);
             assert(data["header.majorTrainFormatVersion"].as<uint64_t>() == 2);
             assert(data["header.minorTrainFormatVersion"].as<uint64_t>() == 1);
+
+            auto image_passport = data["image.passport"].as<std::vector<std::string>>();
+            try {
+                auto image_passport_throw = data["image.passport"].as<std::vector<int64_t>>();
+            } catch (karabo_bridge::CastErrorMsgpack& e) {
+                // expected exception
+            }
 
             assert(data["detector.data"].dtype() == "MSGPACK_OBJECT_BIN");
             auto detector_data = data["detector.data"].as<std::vector<uint8_t>>();
@@ -66,6 +85,11 @@ int main (int argc, char* argv[]) {
             assert(data.array["image.trainId"].dtype() == "uint64_t");
             assert(data.array["image.trainId"].shape() == std::vector<unsigned int>{64});
             auto train_id = data.array["image.trainId"].as<uint64_t>();
+            try {
+                auto train_id_throw = data.array["image.trainId"].as<int64_t>();
+            } catch (karabo_bridge::TypeMismatchErrorArray& e) {
+                // expected exception
+            }
             for (auto v : train_id) assert(v >= 10000000000);
             assert(train_id.size() == 64);
 
