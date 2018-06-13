@@ -671,8 +671,10 @@ public:
             ss << "Total bytes received: " << data.second.bytesReceived() << "\n\n";
 
             ss << "path, type, container data type, container shape\n";
-            for (auto&v : data.second.metadata) prettyStream(v, ss);
 
+            ss << "\nMetadata\n" << std::string(8, '-') << "\n";
+            for (auto&v : data.second.metadata) prettyStream(v, ss);
+            ss << "\nData\n" << std::string(4, '-') << "\n";
             for (auto& v : data.second.msgpack_data) prettyStream(v, ss);
 
             for (auto &v : data.second.array) {
