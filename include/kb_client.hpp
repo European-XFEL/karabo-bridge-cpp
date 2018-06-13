@@ -158,12 +158,11 @@ public:
         value_(value),
         size_(
             [&value]() -> std::size_t {
-                if (value.type == msgpack::type::object_type::NIL) return 0;
                 if (value.type == msgpack::type::object_type::ARRAY ||
                         value.type == msgpack::type::object_type::MAP ||
                         value.type == msgpack::type::object_type::BIN)
                     return value.via.array.size;
-                return 1;
+                return 0;
                 }()
             ),
         dtype_(msgpack_type_map.at(value.type))
@@ -193,8 +192,7 @@ public:
     std::size_t size() const { return size_; }
 
     std::string subType() const {
-        if (!size_) return "";  // NIL
-        if (size_ == 1) return dtype_;
+        if (!size_) return "";  // scalar and NIL
         if (dtype_ == "MSGPACK_OBJECT_ARRAY") return msgpack_type_map.at(value_.via.array.ptr[0].type);
         // TODO: should I give "char" or "unsigned char"?
         if (dtype_ == "MSGPACK_OBJECT_BIN") return "byte";
