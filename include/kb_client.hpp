@@ -70,11 +70,26 @@ bool check_type_by_string(const std::string& type_string) {
 class Object {
     // msgpack::object has a shallow copy constructor
     msgpack::object value_;
+    std::size_t size_;
+    std::string dtype_;
 
 public:
     Object() = default;  // must be default constructable
 
-    explicit Object(const msgpack::object& value): value_(value) {}
+    explicit Object(const msgpack::object& value):
+        value_(value),
+        size_(
+            [&value]() -> std::size_t {
+                if (value.type == msgpack::type::object_type::NIL) return 0;
+                if (value.type == msgpack::type::object_type::ARRAY ||
+                        value.type == msgpack::type::object_type::MAP ||
+                        value.type == msgpack::type::object_type::BIN)
+                    return value.via.array.size;
+                return 1;
+                }()
+            ),
+        dtype_(msgpack_type_map.at(value.type))
+    {}
 
     ~Object() = default;
 
@@ -85,11 +100,20 @@ public:
      * std::bad_cast if the cast fails.
      */
     template<typename T>
-    T as() { return value_.as<T>(); }
+    T as() const { return value_.as<T>(); }
 
-    msgpack::object get() const { return value_; }
+    std::string dtype() const { return dtype_; }
 
-    std::string dtype() const { return msgpack_type_map.at(value_.type); }
+    std::size_t size() const { return size_; }
+
+    std::string subType() const {
+        if (!size_) return "";  // NIL
+        if (size_ == 1) return dtype_;
+        if (dtype_ == "MSGPACK_OBJECT_ARRAY") return msgpack_type_map.at(value_.via.array.ptr[0].type);
+        // TODO: should I give "char" or "unsigned char"?
+        if (dtype_ == "MSGPACK_OBJECT_BIN") return "byte";
+        return "unimplemented";
+    }
 };
 
 /*
@@ -122,13 +146,13 @@ public:
     std::size_t size() const { return size_; }
 
     /*
-     * Convert the data held in msg:message_t object to std::vector<T>.
+     * Copy the data into a vector.
      *
      * Exceptions:
      * std::bad_cast if the cast fails or the types do not match
      */
     template<typename T>
-    std::vector<T> as() {
+    std::vector<T> as() const {
         if (!check_type_by_string<T>(dtype_)) throw std::bad_cast();
         auto ptr = reinterpret_cast<const T*>(ptr_);
         return std::vector<T>(ptr, ptr + size());
@@ -308,7 +332,7 @@ struct kb_data {
     kb_data(kb_data&&) = default;
     kb_data& operator=(kb_data&&) = default;
 
-    std::map<std::string, Object> meta_data;
+    std::map<std::string, Object> metadata;
     std::map<std::string, Object> msgpack_data;
     std::map<std::string, Array> array;
 
@@ -316,7 +340,8 @@ struct kb_data {
         return msgpack_data.at(key);
     }
 
-    std::size_t size() {
+    // TODO: Make a new name for this member function
+    std::size_t size() const {
         std::size_t size_ = 0;
         for (auto& m: mpmsg_) size_ += m.size();
         return size_;
@@ -427,36 +452,22 @@ class Client {
      * Add formatted output of an Object to the stringstream.
      */
     void prettyStream(const std::pair<std::string, Object>& v, std::stringstream& ss) {
-        msgpack::type::object_type type_id = v.second.get().type;
+        ss << v.first << ", " << v.second.dtype();
 
-        ss << v.first << ", ";
+        if (v.second.dtype() == "MSGPACK_OBJECT_ARRAY") { // msgpack::ARRAY
+            ss << ", " << v.second.subType() << ", [" << v.second.size() << "]\n";
 
-        if (type_id == msgpack::type::object_type::NIL) { // msgpack::NIL
-            ss << msgpack_type_map[type_id] << "\n";
+        } else if (v.second.dtype() == "MSGPACK_OBJECT_MAP") { // msgpack::MAP
+            ss << " (Check...unexpected data type!)\n";
 
-        } else if (type_id == msgpack::type::object_type::ARRAY ) { // msgpack::ARRAY
-            int size = v.second.get().via.array.size;
-            ss << msgpack_type_map[type_id] << ", ";
-            if (!size) {
-                // TODO: is it possible get the data type of an empty array?
-                ss << ", [0]\n";
-            } else {
-                msgpack::type::object_type etype_id = v.second.get().via.array.ptr[0].type;
-                ss << msgpack_type_map[etype_id] << ", [" << size << "]\n";
-            }
+        } else if (v.second.dtype() == "MSGPACK_OBJECT_BIN") { // msgpack::BIN
+            ss << ", " << v.second.subType() << ", [" << v.second.size() << "]\n";
 
-        } else if (type_id == msgpack::type::object_type::MAP) { // msgpack::MAP
-            ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
-
-        } else if (type_id == msgpack::type::object_type::BIN ) { // msgpack::BIN
-            int size = v.second.get().via.bin.size;
-            ss << msgpack_type_map[type_id] << ", " << "byte" << ", [" << size << "]\n";
-
-        } else if (type_id == msgpack::type::object_type::EXT) { // msgpack::EXT
-            ss << msgpack_type_map[type_id] << " (Check...unexpected data type!)\n";
+        } else if (v.second.dtype() == "MSGPACK_OBJECT_EXT") { // msgpack::EXT
+            ss << " (Check...unexpected data type!)\n";
 
         } else {
-            ss << msgpack_type_map[v.second.get().type] << "\n";
+            ss << "\n";
         }
     }
 
@@ -500,7 +511,7 @@ public:
 
             // the next message is the content (data)
             if (content == "msgpack") {
-                kbdt.meta_data = header_unpacked.at("metadata").as<ObjectMap>();
+                kbdt.metadata = header_unpacked.at("metadata").as<ObjectMap>();
 
                 if (!is_initialized)
                     is_initialized = true;
@@ -566,7 +577,7 @@ public:
             ss << "Total bytes received: " << data.second.size() << "\n\n";
 
             ss << "path, type, container data type, container shape\n";
-            for (auto&v : data.second.meta_data) prettyStream(v, ss);
+            for (auto&v : data.second.metadata) prettyStream(v, ss);
 
             for (auto& v : data.second.msgpack_data) prettyStream(v, ss);
 
