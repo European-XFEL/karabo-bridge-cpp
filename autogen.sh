@@ -10,6 +10,6 @@ else
     cmake -D CMAKE_CXX_COMPILER=/usr/bin/g++-4.8 ..
 fi
 
-make
+make -j 4
 make test
 cd ..
