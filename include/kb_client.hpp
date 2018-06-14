@@ -179,6 +179,9 @@ public:
     }
 };
 
+using ObjectMap = std::map<std::string, Object>;
+using ObjectPair = std::pair<std::string, Object>;
+
 /*
  * A container held a pointer to the data chunk and other useful information.
  */
@@ -396,8 +399,11 @@ private:
 /*
  * Data structure presented to the user.
  *
- * There are two different types of array: one is msgpack::ARRAY which is
- * encapsulated by Object and another is byte array which is encapsulated in class Array.
+ * The data member "metadata" hold a map of meta data;
+ * The data member "array" hold a map of array data, which is usually a
+ * big chunk of data;
+ * The data member "data" hold a map of normal data, where there can have
+ * both scalar data and small arrays.
  */
 struct kb_data {
     kb_data() = default;
@@ -408,12 +414,25 @@ struct kb_data {
     kb_data(kb_data&&) = default;
     kb_data& operator=(kb_data&&) = default;
 
-    std::map<std::string, Object> metadata;
-    std::map<std::string, Object> msgpack_data;
+    using iterator = ObjectMap::iterator;
+    using const_iterator = ObjectMap::const_iterator;
+
+    ObjectMap metadata;
     std::map<std::string, Array> array;
 
-    Object& operator[](const std::string& key) {
-        return msgpack_data.at(key);
+    Object& operator[](const std::string& key) { return data_.at(key); }
+
+    iterator begin() { return data_.begin(); }
+    iterator end() { return data_.end(); }
+    const_iterator begin() const { return data_.begin(); }
+    const_iterator end() const { return data_.end(); }
+
+    template<typename T>
+    void setData(T&& value) { data_ = std::forward<T>(value); }
+
+    template<typename T>
+    std::pair<iterator, bool> insert(T&& value) {
+        return data_.insert(std::forward<T>(value));
     }
 
     // Use bytesReceived for clarity
@@ -436,6 +455,7 @@ struct kb_data {
     }
 
 private:
+    ObjectMap data_;
     std::vector<zmq::message_t> mpmsg_; // maintain the lifetime of data
     std::vector<msgpack::object_handle> handles_; // maintain the lifetime of data
 };
@@ -561,7 +581,6 @@ public:
      */
     std::map<std::string, kb_data> next() {
         std::map<std::string, kb_data> data_pkg;
-        using ObjectMap = std::map<std::string, Object>;
 
         sendRequest();
         MultipartMsg mpmsg = receiveMultipartMsg();
@@ -596,7 +615,9 @@ public:
                 msgpack::object_handle oh_data;
                 msgpack::unpack(oh_data, static_cast<const char*>(it->data()), it->size());
                 kbdt.metadata = header_unpacked.at("metadata").as<ObjectMap>();
-                kbdt.msgpack_data = oh_data.get().as<ObjectMap>();
+
+                kbdt.setData(oh_data.get().as<ObjectMap>());
+
                 kbdt.appendHandle(std::move(oh_header));
                 kbdt.appendHandle(std::move(oh_data));
 
@@ -657,7 +678,7 @@ public:
             for (auto&v : data.second.metadata) prettyStream<Object>(v, ss);
 
             ss << "\nData\n" << std::string(4, '-') << "\n";
-            for (auto& v : data.second.msgpack_data) prettyStream<Object>(v, ss);
+            for (auto& v : data.second) prettyStream<Object>(v, ss);
 
             for (auto &v : data.second.array) prettyStream<Array>(v, ss);
 
