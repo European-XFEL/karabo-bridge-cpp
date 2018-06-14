@@ -59,66 +59,28 @@ std::map<msgpack::type::object_type, std::string> msgpack_type_map = {
 
 // Define exceptions to ease debugging
 
-class TypeMismatchError : public std::exception {
+class CastError : public std::exception {
     std::string msg_;
 public:
-    explicit TypeMismatchError(const std::string& msg) : msg_(msg) {}
+    explicit CastError(const std::string& msg) : msg_(msg) {}
 
     virtual const char* what() const throw() {
         return msg_.c_str() ;
     }
 };
 
-class TypeMismatchErrorArray : public TypeMismatchError {
+class TypeMismatchErrorArray : public CastError {
 public:
     explicit TypeMismatchErrorArray(const std::string& msg)
-        : TypeMismatchError(msg)
+        : CastError(msg)
     {}
 };
 
-class TypeMismatchErrorMsgpack : public TypeMismatchError {
+class CastErrorObject : public CastError {
 public:
-    explicit TypeMismatchErrorMsgpack(const std::string& msg)
-        : TypeMismatchError(msg)
+    explicit CastErrorObject(const std::string& msg) : CastError(msg)
     {}
 };
-
-class CastErrorMsgpack : public std::bad_cast {
-    virtual const char* what() const throw() {
-        return "Mismatched container type or container data type!";
-    }
-};
-
-/*
- * Use to check data type before casting an Object object.
- *
- * Implicit type conversion of scalar data (including string) is not allowed.
- */
-template <typename T>
-void checkTypeByIndex(msgpack::type::object_type idx) {
-    // cannot check containers, NIL?
-    if (idx == msgpack::type::object_type::NIL ||
-        idx == msgpack::type::object_type::ARRAY ||
-        idx == msgpack::type::object_type::MAP ||
-        idx == msgpack::type::object_type::BIN ||
-        idx == msgpack::type::object_type::EXT) return;
-
-    if (idx == msgpack::type::object_type::BOOLEAN
-        && std::is_same<T, bool>::value) return;
-    if (idx == msgpack::type::object_type::POSITIVE_INTEGER
-        && std::is_same<T, uint64_t>::value) return;
-    if (idx == msgpack::type::object_type::NEGATIVE_INTEGER
-        && std::is_same<T, int64_t>::value) return;
-    if (idx == msgpack::type::object_type::FLOAT32
-        && std::is_same<T, float>::value) return;
-    if (idx == msgpack::type::object_type::FLOAT64
-        && std::is_same<T, double>::value) return;
-    if (idx == msgpack::type::object_type::STR
-        && std::is_same<T, std::string>::value) return;
-
-    throw TypeMismatchErrorMsgpack("The expected type is "
-                                   + msgpack_type_map.at(idx) + "!");
-}
 
 /*
  * Use to check data type before casting an Array object.
@@ -126,30 +88,28 @@ void checkTypeByIndex(msgpack::type::object_type idx) {
  * Implicit type conversion is not allowed.
  */
 template <typename T>
-void checkTypeByString(const std::string& type_string) {
-    if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return;
-    if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return;
-    if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return;
-    if (type_string == "uint8_t" && std::is_same<T, uint8_t>::value) return;
-    if (type_string == "int64_t" && std::is_same<T, int64_t>::value) return;
-    if (type_string == "int32_t" && std::is_same<T, int32_t>::value) return;
-    if (type_string == "int16_t" && std::is_same<T, int16_t>::value) return;
-    if (type_string == "int8_t" && std::is_same<T, int8_t>::value) return;
-    if (type_string == "float" && std::is_same<T, float>::value) return;
-    if (type_string == "double" && std::is_same<T, double>::value) return;
-    if (type_string == "bool" && std::is_same<T, bool>::value) return;
-
-    throw TypeMismatchErrorArray("The expected type is " + type_string + "!");
+bool checkTypeByString(const std::string& type_string) {
+    if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return true;
+    if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return true;
+    if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return true;
+    if (type_string == "uint8_t" && std::is_same<T, uint8_t>::value) return true;
+    if (type_string == "int64_t" && std::is_same<T, int64_t>::value) return true;
+    if (type_string == "int32_t" && std::is_same<T, int32_t>::value) return true;
+    if (type_string == "int16_t" && std::is_same<T, int16_t>::value) return true;
+    if (type_string == "int8_t" && std::is_same<T, int8_t>::value) return true;
+    if (type_string == "float" && std::is_same<T, float>::value) return true;
+    if (type_string == "double" && std::is_same<T, double>::value) return true;
+    return (type_string == "bool" && std::is_same<T, bool>::value);
 }
 
 /*
- * A container hold a msgpack::object for deferred unpack.
+ * A container that holds a msgpack::object for deferred unpack.
  */
 class Object {
     // msgpack::object has a shallow copy constructor
     msgpack::object value_;
-    std::size_t size_;
-    std::string dtype_;
+    std::size_t size_;  // 0 for scalar data and NIL
+    std::string dtype_;  // if container, it refers to the data type in the container
 
 public:
     Object() = default;  // must be default constructable
@@ -163,9 +123,17 @@ public:
                         value.type == msgpack::type::object_type::BIN)
                     return value.via.array.size;
                 return 0;
-                }()
-            ),
-        dtype_(msgpack_type_map.at(value.type))
+            }()),
+        dtype_(
+            [&value]() -> std::string {
+                if (value.type == msgpack::type::object_type::ARRAY)
+                    return msgpack_type_map.at(value.via.array.ptr[0].type);
+                if (value.type == msgpack::type::object_type::BIN) return "char";
+                if (value.type == msgpack::type::object_type::MAP
+                        || value.type == msgpack::type::object_type::EXT)
+                    return "undefined";
+                return msgpack_type_map.at(value.type);
+            }())
     {}
 
     ~Object() = default;
@@ -174,16 +142,21 @@ public:
      * Cast the held msgpack::object to a given type.
      *
      * Exceptions:
-     * TypeMismatchErrorMsgpack: if scalar type mismatches
-     * CastErrorMsgpack: if cast (non-scalar except NIL) fails
+     * CastErrorObject: if cast fails
      */
     template<typename T>
     T as() const {
-        checkTypeByIndex<T>(value_.type);
         try {
             return value_.as<T>();
         } catch(std::bad_cast& e) {
-            throw CastErrorMsgpack();
+            std::string error_msg;
+            if (size_)
+                error_msg = ("The expected type is a(n) "
+                             + containerType() + " of " + dtype());
+            else
+                error_msg = ("The expected type is " + dtype());
+
+            throw CastErrorObject(error_msg);
         }
     }
 
@@ -191,11 +164,18 @@ public:
 
     std::size_t size() const { return size_; }
 
-    std::string subType() const {
-        if (!size_) return "";  // scalar and NIL
-        if (dtype_ == "MSGPACK_OBJECT_ARRAY") return msgpack_type_map.at(value_.via.array.ptr[0].type);
-        if (dtype_ == "MSGPACK_OBJECT_BIN") return "char";
-        return "unimplemented";
+    std::vector<std::size_t> shape() const {
+        if (size_) return std::vector<std::size_t>({size_});
+        return std::vector<std::size_t>();
+    }
+
+    std::string containerType() const {
+        if (!size_) return ""; // scalar and NIL
+        if (value_.type == msgpack::type::object_type::ARRAY ||
+                value_.type == msgpack::type::object_type::BIN)
+            return "array-like";
+        if (value_.type == msgpack::type::object_type::MAP) return "map";
+        return msgpack_type_map.at(value_.type);
     }
 };
 
@@ -204,7 +184,7 @@ public:
  */
 class Array {
     void* ptr_; // pointer to the data chunk
-    std::vector<unsigned int> shape_; // shape of the array
+    std::vector<std::size_t> shape_; // shape of the array
     std::size_t size_; // size of the flattened array
     std::string dtype_; // data type
 
@@ -212,7 +192,7 @@ public:
     Array() = default;
 
     // shape and dtype should be moved into the constructor
-    Array(void* ptr, const std::vector<unsigned int>& shape, const std::string& dtype):
+    Array(void* ptr, const std::vector<std::size_t>& shape, const std::string& dtype):
         ptr_(ptr),
         shape_(shape),
         size_(
@@ -234,16 +214,24 @@ public:
      * Exceptions:
      * TypeMismatchErrorArray: if type mismatches
      */
-    template<typename T>
-    std::vector<T> as() const {
-        checkTypeByString<T>(dtype_);
-        auto ptr = reinterpret_cast<const T*>(ptr_);
-        return std::vector<T>(ptr, ptr + size());
+    template<typename Container,
+             typename = typename std::enable_if<!std::is_integral<Container>::value>::type>
+    Container as() const {
+        typedef typename Container::value_type ElementType;
+        if (!checkTypeByString<ElementType>(dtype_))
+            throw TypeMismatchErrorArray("The expected type is a(n) "
+                                         + containerType() + " of " + dtype());
+
+        auto ptr = reinterpret_cast<const ElementType*>(ptr_);
+        // TODO: cannot initialize std::array
+        return Container(ptr, ptr + size());
     }
 
-    std::vector<unsigned int> shape() const { return shape_; }
+    std::vector<std::size_t> shape() const { return shape_; }
 
     std::string dtype() const { return dtype_; }
+
+    std::string containerType() const { return "Array"; }
 
     /*
      * Return a casted pointer to the held array data.
@@ -253,7 +241,8 @@ public:
      */
     template<typename T>
     T* data() const {
-        checkTypeByString<T>(dtype_);
+        if (!checkTypeByString<T>(dtype_))
+            throw TypeMismatchErrorArray("The expected pointer type is " + dtype());
         return reinterpret_cast<T*>(ptr_);
     }
 
@@ -483,6 +472,8 @@ std::string parseMultipartMsg(const MultipartMsg& mpmsg, bool boundary=true) {
  */
 template <typename T>
 std::string vectorToString(const std::vector<T>& vec) {
+    if (vec.empty()) return "";
+
     std::stringstream ss;
     ss << "[";
     for (std::size_t i=0; i<vec.size(); ++i) {
@@ -540,26 +531,18 @@ class Client {
     }
 
     /*
-     * Add formatted output of an Object to the stringstream.
+     * Add formatted output to a stringstream.
      */
-    void prettyStream(const std::pair<std::string, Object>& v, std::stringstream& ss) {
-        ss << v.first << ", " << v.second.dtype();
+    template <typename T>
+    void prettyStream(const std::pair<std::string, T>& v, std::stringstream& ss) {
+        ss << v.first
+           << ", " << v.second.containerType()
+           << ", " << vectorToString(v.second.shape())
+           << ", " << v.second.dtype();
 
-        if (v.second.dtype() == "MSGPACK_OBJECT_ARRAY") { // msgpack::ARRAY
-            ss << ", " << v.second.subType() << ", [" << v.second.size() << "]\n";
-
-        } else if (v.second.dtype() == "MSGPACK_OBJECT_MAP") { // msgpack::MAP
-            ss << " (Check...unexpected data type!)\n";
-
-        } else if (v.second.dtype() == "MSGPACK_OBJECT_BIN") { // msgpack::BIN
-            ss << ", " << v.second.subType() << ", [" << v.second.size() << "]\n";
-
-        } else if (v.second.dtype() == "MSGPACK_OBJECT_EXT") { // msgpack::EXT
-            ss << " (Check...unexpected data type!)\n";
-
-        } else {
-            ss << "\n";
-        }
+        if (v.second.containerType() == "map" || v.second.containerType() == "MSGPACK_OBJECT_EXT")
+            ss << " (Check...unexpected data type!)";
+        ss << "\n";
     }
 
 public:
@@ -621,7 +604,8 @@ public:
                 kbdt.appendMsg(std::move(*it));
                 std::advance(it, 1);
 
-                auto shape = header_unpacked.at("shape").as<std::vector<unsigned int>>();
+                auto tmp = header_unpacked.at("shape").as<std::vector<unsigned int>>();
+                std::vector<std::size_t> shape(tmp.begin(), tmp.end());
                 auto dtype = header_unpacked.at("dtype").as<std::string>();
                 toCppTypeString(dtype);
 
@@ -667,17 +651,15 @@ public:
             ss << "source: " << data.first << "\n";
             ss << "Total bytes received: " << data.second.bytesReceived() << "\n\n";
 
-            ss << "path, type, container data type, container shape\n";
+            ss << "path, container, container shape, type\n";
 
             ss << "\nMetadata\n" << std::string(8, '-') << "\n";
-            for (auto&v : data.second.metadata) prettyStream(v, ss);
-            ss << "\nData\n" << std::string(4, '-') << "\n";
-            for (auto& v : data.second.msgpack_data) prettyStream(v, ss);
+            for (auto&v : data.second.metadata) prettyStream<Object>(v, ss);
 
-            for (auto &v : data.second.array) {
-                ss << v.first << ": " << "Array" << ", " << v.second.dtype()
-                   << ", " << vectorToString(v.second.shape()) << "\n";
-            }
+            ss << "\nData\n" << std::string(4, '-') << "\n";
+            for (auto& v : data.second.msgpack_data) prettyStream<Object>(v, ss);
+
+            for (auto &v : data.second.array) prettyStream<Array>(v, ss);
 
             ss << "\n";
         }
