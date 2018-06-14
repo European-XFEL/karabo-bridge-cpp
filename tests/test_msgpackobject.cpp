@@ -5,19 +5,19 @@
 
 
 template<typename T>
-karabo_bridge::Object packObject(T x) {
+karabo_bridge::MsgpackObject packObject(T x) {
     msgpack::sbuffer sbuf;
     msgpack::pack(sbuf, x);
     msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
-    return oh.get().as<karabo_bridge::Object>();
+    return oh.get().as<karabo_bridge::MsgpackObject>();
 }
 
-karabo_bridge::Object packBin(std::vector<int> x) {
+karabo_bridge::MsgpackObject packBin(std::vector<int> x) {
     msgpack::sbuffer sbuf;
     msgpack::pack(sbuf, msgpack::type::raw_ref(reinterpret_cast<const char*>(x.data()),
                                                x.size() * sizeof(int)));
     msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
-    return oh.get().as<karabo_bridge::Object>();
+    return oh.get().as<karabo_bridge::MsgpackObject>();
 }
 
 int main() {

@@ -5,11 +5,11 @@
 
 
 template<typename T>
-karabo_bridge::Object packObject(T x) {
+karabo_bridge::MsgpackObject packObject(T x) {
     msgpack::sbuffer sbuf;
     msgpack::pack(sbuf, x);
     msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
-    return oh.get().as<karabo_bridge::Object>();
+    return oh.get().as<karabo_bridge::MsgpackObject>();
 }
 
 int main() {

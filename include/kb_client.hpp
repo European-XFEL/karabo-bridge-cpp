@@ -103,40 +103,55 @@ bool checkTypeByString(const std::string& type_string) {
 }
 
 /*
- * A container that holds a msgpack::object for deferred unpack.
+ * Abstract class for MsgpackObject and Array.
  */
 class Object {
-    // msgpack::object has a shallow copy constructor
-    msgpack::object value_;
-    std::size_t size_;  // 0 for scalar data and NIL
-    std::string dtype_;  // if container, it refers to the data type in the container
+
+protected:
+    // size of the flattened array, 0 for scalar data and NIL
+    std::size_t size_;
+    // data type, if container, it refers to the data type in the container
+    std::string dtype_;
 
 public:
-    Object() = default;  // must be default constructable
+    Object() : size_(0) {};
+    virtual ~Object() = default;
 
-    explicit Object(const msgpack::object& value):
-        value_(value),
-        size_(
-            [&value]() -> std::size_t {
-                if (value.type == msgpack::type::object_type::ARRAY ||
-                        value.type == msgpack::type::object_type::MAP ||
-                        value.type == msgpack::type::object_type::BIN)
-                    return value.via.array.size;
-                return 0;
-            }()),
-        dtype_(
-            [&value]() -> std::string {
-                if (value.type == msgpack::type::object_type::ARRAY)
-                    return msgpack_type_map.at(value.via.array.ptr[0].type);
-                if (value.type == msgpack::type::object_type::BIN) return "char";
-                if (value.type == msgpack::type::object_type::MAP
-                        || value.type == msgpack::type::object_type::EXT)
-                    return "undefined";
-                return msgpack_type_map.at(value.type);
-            }())
-    {}
+    virtual std::size_t size() const = 0;
+    virtual std::string dtype() const = 0;
+    // empty vector for scalar data
+    virtual std::vector<std::size_t> shape() const = 0;
+    // empty string for scalar data
+    virtual std::string containerType() const = 0;
+};
 
-    ~Object() = default;
+/*
+ * A container that holds a msgpack::object for deferred unpack.
+ */
+class MsgpackObject : public Object {
+
+    msgpack::object value_; // msgpack::object has a shallow copy constructor
+
+public:
+    MsgpackObject() = default;  // must be default constructable
+
+    explicit MsgpackObject(const msgpack::object& value): value_(value) {
+        if (value.type == msgpack::type::object_type::ARRAY ||
+                value.type == msgpack::type::object_type::MAP ||
+                value.type == msgpack::type::object_type::BIN)
+            size_ = value.via.array.size;
+
+        if (value.type == msgpack::type::object_type::ARRAY)
+            dtype_ = msgpack_type_map.at(value.via.array.ptr[0].type);
+        else if (value.type == msgpack::type::object_type::BIN)
+            dtype_ = "char";
+        else if (value.type == msgpack::type::object_type::MAP
+            || value.type == msgpack::type::object_type::EXT)
+            dtype_ = "undefined";
+        else dtype_ = msgpack_type_map.at(value.type);
+    }
+
+    ~MsgpackObject() = default;
 
     /*
      * Cast the held msgpack::object to a given type.
@@ -179,17 +194,16 @@ public:
     }
 };
 
-using ObjectMap = std::map<std::string, Object>;
-using ObjectPair = std::pair<std::string, Object>;
+using ObjectMap = std::map<std::string, MsgpackObject>;
+using ObjectPair = std::pair<std::string, MsgpackObject>;
 
 /*
  * A container held a pointer to the data chunk and other useful information.
  */
-class Array {
+class Array  : public Object {
+
     void* ptr_; // pointer to the data chunk
     std::vector<std::size_t> shape_; // shape of the array
-    std::size_t size_; // size of the flattened array
-    std::string dtype_; // data type
 
 public:
     Array() = default;
@@ -197,19 +211,19 @@ public:
     // shape and dtype should be moved into the constructor
     Array(void* ptr, const std::vector<std::size_t>& shape, const std::string& dtype):
         ptr_(ptr),
-        shape_(shape),
-        size_(
-            [&shape]() {
-                std::size_t size = 1;
-                // Overflow is not expected since otherwise zmq::message_t
-                // cannot hold the data.
-                for (auto& v : shape) size *= v;
-                return size;
-            }()
-        ),
-        dtype_(dtype) {}
+        shape_(shape)
+    {
+        std::size_t size = 1;
+        // Overflow is not expected since otherwise zmq::message_t
+        // cannot hold the data.
+        for (auto& v : shape) size *= v;
+        size_ = size;
+        dtype_ = dtype;
+    }
 
     std::size_t size() const { return size_; }
+
+    ~Array() = default;
 
     /*
      * Copy the data into a vector.
@@ -264,9 +278,9 @@ namespace adaptor{
  * template specialization for karabo_bridge::object
  */
 template<>
-struct as<karabo_bridge::Object> {
-    karabo_bridge::Object operator()(msgpack::object const& o) const {
-        return karabo_bridge::Object(o.as<msgpack::object>());
+struct as<karabo_bridge::MsgpackObject> {
+    karabo_bridge::MsgpackObject operator()(msgpack::object const& o) const {
+        return karabo_bridge::MsgpackObject(o.as<msgpack::object>());
     }
 };
 
@@ -420,7 +434,7 @@ struct kb_data {
     ObjectMap metadata;
     std::map<std::string, Array> array;
 
-    Object& operator[](const std::string& key) { return data_.at(key); }
+    MsgpackObject& operator[](const std::string& key) { return data_.at(key); }
 
     iterator begin() { return data_.begin(); }
     iterator end() { return data_.end(); }
@@ -675,10 +689,10 @@ public:
             ss << "path, container, container shape, type\n";
 
             ss << "\nMetadata\n" << std::string(8, '-') << "\n";
-            for (auto&v : data.second.metadata) prettyStream<Object>(v, ss);
+            for (auto&v : data.second.metadata) prettyStream<MsgpackObject>(v, ss);
 
             ss << "\nData\n" << std::string(4, '-') << "\n";
-            for (auto& v : data.second) prettyStream<Object>(v, ss);
+            for (auto& v : data.second) prettyStream<MsgpackObject>(v, ss);
 
             for (auto &v : data.second.array) prettyStream<Array>(v, ss);
 

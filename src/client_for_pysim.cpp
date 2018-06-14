@@ -28,7 +28,7 @@ int main (int argc, char* argv[]) {
     std::cout << client.showMsg() << "\n";
     std::cout << client.showNext() << "\n";
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 1; ++i) {
         // there is bottleneck in the server side
         std::this_thread::sleep_for(std::chrono::milliseconds(400));
 
