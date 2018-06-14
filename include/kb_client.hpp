@@ -151,7 +151,7 @@ public:
         else dtype_ = msgpack_type_map.at(value.type);
     }
 
-    ~MsgpackObject() = default;
+    ~MsgpackObject() override = default;
 
     /*
      * Cast the held msgpack::object to a given type.
@@ -175,16 +175,16 @@ public:
         }
     }
 
-    std::string dtype() const { return dtype_; }
+    std::string dtype() const override { return dtype_; }
 
-    std::size_t size() const { return size_; }
+    std::size_t size() const override { return size_; }
 
-    std::vector<std::size_t> shape() const {
+    std::vector<std::size_t> shape() const override {
         if (size_) return std::vector<std::size_t>({size_});
         return std::vector<std::size_t>();
     }
 
-    std::string containerType() const {
+    std::string containerType() const override {
         if (!size_) return ""; // scalar and NIL
         if (value_.type == msgpack::type::object_type::ARRAY ||
                 value_.type == msgpack::type::object_type::BIN)
@@ -221,9 +221,9 @@ public:
         dtype_ = dtype;
     }
 
-    std::size_t size() const { return size_; }
+    std::size_t size() const override { return size_; }
 
-    ~Array() = default;
+    ~Array() override = default;
 
     /*
      * Copy the data into a vector.
@@ -244,11 +244,11 @@ public:
         return Container(ptr, ptr + size());
     }
 
-    std::vector<std::size_t> shape() const { return shape_; }
+    std::vector<std::size_t> shape() const override { return shape_; }
 
-    std::string dtype() const { return dtype_; }
+    std::string dtype() const override { return dtype_; }
 
-    std::string containerType() const { return "Array"; }
+    std::string containerType() const override { return "Array"; }
 
     /*
      * Return a casted pointer to the held array data.
