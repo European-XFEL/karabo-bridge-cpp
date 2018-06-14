@@ -43,4 +43,10 @@ int main() {
     ++it;
     assert(it == data.end());
 
+    // access via iterator
+    for (auto it = data.begin(); it != data.end(); ++it)
+        std::cout << it->first << std::endl;
+
+    // access using auto range
+    for (auto &v : data) std::cout << v.first << std::endl;
 }
