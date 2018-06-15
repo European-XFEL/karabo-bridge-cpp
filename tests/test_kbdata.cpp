@@ -23,7 +23,7 @@ int main() {
     karabo_bridge::kb_data data;
 
     // copy from obj_data
-    for (auto & v : obj_data) { data.insert(v); }
+    for (auto &v : obj_data) { data.insert(v); }
     assert(obj_data["obj1"].as<int>() == 100);
 
     // check iterator

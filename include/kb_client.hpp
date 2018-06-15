@@ -485,7 +485,7 @@ struct kb_data {
 
     std::size_t bytesReceived() const {
         std::size_t size_ = 0;
-        for (auto& m: mpmsg_) size_ += m.size();
+        for (auto& m : mpmsg_) size_ += m.size();
         return size_;
     }
 
@@ -732,13 +732,13 @@ public:
             ss << "path, container, container shape, type\n";
 
             ss << "\nmetadata\n" << std::string(8, '-') << "\n";
-            for (auto&v : data.second.metadata) prettyStream<MsgpackObject>(v, ss);
+            for (auto& v : data.second.metadata) prettyStream<MsgpackObject>(v, ss);
 
             ss << "\ndata\n" << std::string(4, '-') << "\n";
             for (auto& v : data.second) prettyStream<MsgpackObject>(v, ss);
 
             ss << "\narray\n" << std::string(5, '-') << "\n";
-            for (auto &v : data.second.array) prettyStream<NDArray>(v, ss);
+            for (auto& v : data.second.array) prettyStream<NDArray>(v, ss);
 
             ss << "\n";
         }

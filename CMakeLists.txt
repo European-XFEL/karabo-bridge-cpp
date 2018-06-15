@@ -47,6 +47,6 @@ endforeach()
 
 add_test(TEST_VERSION test1)
 add_test(TEST_MULTIPART_MSG test2)
-add_test(TEST_MSGPACKOBJECT test3)
-add_test(TEST_ARRAY test4)
+add_test(TEST_MSGPACK_OBJECT test3)
+add_test(TEST_NDARRAY test4)
 add_test(TEST_KBDATA test5)
