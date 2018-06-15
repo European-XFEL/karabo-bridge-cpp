@@ -497,6 +497,14 @@ struct kb_data {
         handles_.push_back(std::move(oh));
     }
 
+    void swap(kb_data& other) {
+        metadata.swap(other.metadata);
+        array.swap(other.array);
+        data_.swap(other.data_);
+        mpmsg_.swap(other.mpmsg_);
+        handles_.swap(other.handles_);
+    }
+
 private:
     ObjectMap data_;
     std::vector<zmq::message_t> mpmsg_; // maintain the lifetime of data
@@ -649,8 +657,11 @@ public:
             if (content == "msgpack") {
                 if (!is_initialized)
                     is_initialized = true;
-                else
+                else {
                     data_pkg.insert(std::make_pair(source, std::move(kbdt)));
+                    kb_data empty_data;
+                    kbdt.swap(empty_data);
+                }
 
                 kbdt.appendMsg(std::move(*it));
                 std::advance(it, 1);
@@ -688,6 +699,8 @@ public:
         }
 
         data_pkg.insert(std::make_pair(source, std::move(kbdt)));
+        kb_data empty_data;
+        kbdt.swap(empty_data);
 
         return data_pkg;
     }
