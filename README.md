@@ -109,17 +109,17 @@ image.gain, array-like, [16, 128, 512, 64], uint16_t
 
 #### next()
 
-Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and the value is a `kb_data` struct containing `metadata`, `data` and `array`. Each of them is a `std::map<std::string, Object>`.
+Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and the value is a `kb_data` struct containing `metadata`, `data` and `array`. Each of them is a `std::map<std::string, object>`. It should be noted that "objects" in `metadata`, `data` and `array` are different.
 
 ##### metadata
-Each `Object` in `metadata` is a scalar data and can be visited via
+Each "object" in `metadata` is a scalar data and can be visited via
 ```c++
 uint64_t timestamp_tid = kb_data.metadata["timestamp.tid"].as<uint64_t>();
 std::string timestamp.frac = kb_data.metadata["timestamp.frac"].as<std::string>();
 ```
 
 ##### data
-Each `Object` in `data` can be either a scalar data or an "array-like" data. It can be visited directly via
+Each "object" in `data` can be either a scalar data or an "array-like" data. It can be visited directly via
 ```c++
 uint64_t header_pulsecount = kb_data["header.pulseCount"].as<uint64_t>();
 ```
@@ -140,21 +140,23 @@ for (auto& v : kb_data) {}
 
 
 ##### array
-Each `Object` in `array` is an "array-like" data. It can be visited via
+Each "object" in `array` is an "array-like" data. It can be visited via
 ```c++
 // Different containers are supported
 std::vector<float> image_data = kb_data.array["image.data"].as<std::vector<float>>();
 std::deque<float> image_data = kb_data.array["image.data"].as<std::deque<float>>();
 std::array<float, 67108864> image_data = kb_data.array["image.data"].as<std::array<float, 67108864>>();
 ```
-In order to avoid the copy when constructing a container, you can also access the "array-like" data via pointers, e.g.
+Since `array` holds big chunk of data, in order to avoid the copy when constructing a container, you can also access the "array-like" data via pointers, e.g.
 ```c++
 float* ptr = kb_data.array["image.data"].data<float>();
 void* ptr = kb_data.array["image.data"].data();
 ```
 *Note: A strict type checking is applied to `array` when casting. Implicit type conversion is not allowed. You must specify the exact type in the template, e.g. for the above example, you are not allowed to put 'double' in the template.*
 
-##### Member functions for `Object`
+##### Member functions for "object"
+
+"objects" in `metadata`, `data` and `array` share the following common interface:
 
 - `std::string dtype()`
 Return the type for a scalar data and the data type inside the array for an "array-like" data.
