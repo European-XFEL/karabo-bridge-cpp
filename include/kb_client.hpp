@@ -163,7 +163,7 @@ public:
      * Cast the held msgpack::object to a given type.
      *
      * Exceptions:
-     * CastErrorObject: if cast fails
+     * CastErrorMsgpackObject: if cast fails
      */
     template<typename T>
     T as() const {
@@ -263,6 +263,7 @@ public:
      *
      * Exceptions:
      * TypeMismatchErrorArray: if type mismatches
+     * CastErrorArray: if cast fails
      */
     template<typename Container,
              typename = typename std::enable_if<!std::is_integral<Container>::value>::type>
