@@ -197,10 +197,33 @@ public:
 using ObjectMap = std::map<std::string, MsgpackObject>;
 using ObjectPair = std::pair<std::string, MsgpackObject>;
 
+namespace detail {
+
+template<typename Container, typename ElementType>
+struct as_imp {
+    Container operator()(void* ptr_, std::size_t size) {
+        auto ptr = reinterpret_cast<const ElementType*>(ptr_);
+        return Container(ptr, ptr + size);
+    }
+};
+
+// partial specialization for std::array
+template<typename ElementType, std::size_t N>
+struct as_imp<std::array<ElementType, N>, ElementType> {
+    std::array<ElementType, N> operator()(void*ptr_, std::size_t size) {
+        auto ptr = reinterpret_cast<const ElementType*>(ptr_);
+        std::array<ElementType, N> arr;
+        memcpy(arr.data(), ptr, size * sizeof(ElementType));
+        return arr;
+    }
+};
+
+}  // detail
+
 /*
  * A container held a pointer to the data chunk and other useful information.
  */
-class Array  : public Object {
+class Array : public Object {
 
     void* ptr_; // pointer to the data chunk
     std::vector<std::size_t> shape_; // shape of the array
@@ -238,10 +261,8 @@ public:
         if (!checkTypeByString<ElementType>(dtype_))
             throw TypeMismatchErrorArray("The expected type is a(n) "
                                          + containerType() + " of " + dtype());
-
-        auto ptr = reinterpret_cast<const ElementType*>(ptr_);
-        // TODO: cannot initialize std::array
-        return Container(ptr, ptr + size());
+        detail::as_imp<Container, ElementType> as_imp_instance;
+        return as_imp_instance(ptr_, size());
     }
 
     std::vector<std::size_t> shape() const override { return shape_; }

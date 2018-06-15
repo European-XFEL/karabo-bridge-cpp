@@ -28,7 +28,7 @@ int main (int argc, char* argv[]) {
     std::cout << client.showMsg() << "\n";
     std::cout << client.showNext() << "\n";
 
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 5; ++i) {
         // there is bottleneck in the server side
         std::this_thread::sleep_for(std::chrono::milliseconds(400));
 
@@ -69,7 +69,7 @@ int main (int argc, char* argv[]) {
 
             assert(data.array["image.trainId"].dtype() == "uint64_t");
             assert(data.array["image.trainId"].shape() == std::vector<std::size_t>{64});
-            auto train_id = data.array["image.trainId"].as<std::vector<uint64_t>>();
+            auto train_id = data.array["image.trainId"].as<std::array<uint64_t, 64>>();
             for (auto v : train_id) assert(v >= 10000000000);
             assert(train_id.size() == 64);
 

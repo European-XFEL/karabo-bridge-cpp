@@ -18,8 +18,8 @@ int main() {
            == std::vector<uint16_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}));
     assert(array_uint16.as<std::deque<uint16_t>>()
            == std::deque<uint16_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}));
-//    assert((array_uint16.as<std::array<uint16_t, 12>>()
-//           == std::array<uint16_t, 12>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12})));
+    assert((array_uint16.as<std::array<uint16_t, 12>>()
+           == std::array<uint16_t, 12>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12})));
 
     try {
         array_uint16.as<std::vector<int>>();
