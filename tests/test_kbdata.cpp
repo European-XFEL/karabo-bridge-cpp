@@ -18,7 +18,7 @@ int main() {
     karabo_bridge::ObjectMap obj_data{{"obj1", obj1}, {"obj2", obj2}};
 
     uint16_t a[12] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
-    karabo_bridge::Array arr1((void*)a, std::vector<std::size_t>{2, 2, 3}, "uint16_t");
+    karabo_bridge::NDArray arr1((void*)a, std::vector<std::size_t>{2, 2, 3}, "uint16_t");
 
     karabo_bridge::kb_data data;
 

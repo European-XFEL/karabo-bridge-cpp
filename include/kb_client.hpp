@@ -89,7 +89,7 @@ public:
 };
 
 /*
- * Use to check data type before casting an Array object.
+ * Use to check data type before casting an NDArray object.
  *
  * Implicit type conversion is not allowed.
  */
@@ -109,7 +109,7 @@ bool checkTypeByString(const std::string& type_string) {
 }
 
 /*
- * Abstract class for MsgpackObject and Array.
+ * Abstract class for MsgpackObject and NDArray.
  */
 class Object {
 
@@ -233,16 +233,16 @@ struct as_imp<std::array<ElementType, N>, ElementType> {
 /*
  * A container held a pointer to the data chunk and other useful information.
  */
-class Array : public Object {
+class NDArray : public Object {
 
     void* ptr_; // pointer to the data chunk
     std::vector<std::size_t> shape_; // shape of the array
 
 public:
-    Array() = default;
+    NDArray() = default;
 
     // shape and dtype should be moved into the constructor
-    Array(void* ptr, const std::vector<std::size_t>& shape, const std::string& dtype):
+    NDArray(void* ptr, const std::vector<std::size_t>& shape, const std::string& dtype):
         ptr_(ptr),
         shape_(shape)
     {
@@ -256,7 +256,7 @@ public:
 
     std::size_t size() const override { return size_; }
 
-    ~Array() override = default;
+    ~NDArray() override = default;
 
     /*
      * Copy the data into a vector.
@@ -464,7 +464,7 @@ struct kb_data {
     using const_iterator = ObjectMap::const_iterator;
 
     ObjectMap metadata;
-    std::map<std::string, Array> array;
+    std::map<std::string, NDArray> array;
 
     MsgpackObject& operator[](const std::string& key) { return data_.at(key); }
 
@@ -687,7 +687,7 @@ public:
 
                 kbdt.array.insert(std::make_pair(
                     header_unpacked.at("path").as<std::string>(),
-                    Array(it->data(), shape, dtype)));
+                    NDArray(it->data(), shape, dtype)));
             } else {
                 throw std::runtime_error("Unknown data content: " + content);
             }
@@ -738,7 +738,7 @@ public:
             for (auto& v : data.second) prettyStream<MsgpackObject>(v, ss);
 
             ss << "\narray\n" << std::string(5, '-') << "\n";
-            for (auto &v : data.second.array) prettyStream<Array>(v, ss);
+            for (auto &v : data.second.array) prettyStream<NDArray>(v, ss);
 
             ss << "\n";
         }

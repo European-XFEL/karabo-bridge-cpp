@@ -7,7 +7,7 @@
 int main() {
     uint16_t a[12] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 
-    karabo_bridge::Array array_uint16((void*)a, std::vector<std::size_t>{2, 2, 3}, "uint16_t");
+    karabo_bridge::NDArray array_uint16((void*)a, std::vector<std::size_t>{2, 2, 3}, "uint16_t");
     assert(array_uint16.dtype() == "uint16_t");
     assert(array_uint16.shape() == std::vector<std::size_t>({2, 2, 3}));
     assert(array_uint16.size() == 12);
