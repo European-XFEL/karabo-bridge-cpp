@@ -86,7 +86,7 @@ Total bytes received: 402656475
 
 path, container, container shape, type
 
-Metadata
+metadata
 --------
 source, , , string
 timestamp, , , double
@@ -94,7 +94,7 @@ timestamp.frac, , , string
 timestamp.sec, , , string
 timestamp.tid, , , uint64_t
 
-Data   # normal data
+data   # normal data
 ----
 detector.data, array-like, [416], char
 header.dataId, , , uint64_t
@@ -107,8 +107,8 @@ header.trainId, , , uint64_t
 image.passport, array-like, [3], string
 trailer.status, , , uint64_t
 
-Array or ImageData  # Big chunk of data
-------------------
+array   # Big chunk of data
+-----
 image.data, array-like, [16, 128, 512, 64], float
 image.gain, array-like, [16, 128, 512, 64], uint16_t
 ```
