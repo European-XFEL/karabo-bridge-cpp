@@ -98,14 +98,8 @@ data   # normal data
 ----
 detector.data, array-like, [416], char
 header.dataId, , , uint64_t
-header.linkId, , , uint64_t
-header.majorTrainFormatVersion, , , uint64_t
-header.minorTrainFormatVersion, , , uint64_t
 header.pulseCount, , , uint64_t
-header.reserved, array-like, [16], char
-header.trainId, , , uint64_t
 image.passport, array-like, [3], string
-trailer.status, , , uint64_t
 
 array   # Big chunk of data
 -----
@@ -115,56 +109,68 @@ image.gain, array-like, [16, 128, 512, 64], uint16_t
 
 #### next()
 
-Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and `kb_data` is a struct containing `metadata`, `data` and `array`, where `array` refers to big chunk of data.
+Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and the value is a `kb_data` struct containing `metadata`, `data` and `array`. Each of them is a `std::map<std::string, Object>`.
 
 ##### metadata
-`metadata` is a `std::map` data structure. You can visit its elements by
+Each `Object` in `metadata` is a scalar data and can be visited via
 ```c++
 uint64_t timestamp_tid = kb_data.metadata["timestamp.tid"].as<uint64_t>();
 std::string timestamp.frac = kb_data.metadata["timestamp.frac"].as<std::string>();
 ```
 
 ##### data
-Elements in `data` can be visited by
+Each `Object` in `data` can be either a scalar data or an "array-like" data. It can be visited directly via
 ```c++
 uint64_t header_pulsecount = kb_data["header.pulseCount"].as<uint64_t>();
-
+```
+for scalar data and
+```c++
+// Different containers are supported
 std::deque<std::string> image_passport = kb_data["image.passport"].as<std::deque<std::string>>();
 std::array<std::string, 3> image_passport = kb_data["image.passport"].as<std::array<std::string>, 3>();
 std::vector<uint8_t> detector_data = kb_data["detector.data"].as<std::vector<uint8_t>>();
 ```
-You can also iterate over data through iterator, i.e. `kb_data.begin()`, `kb_data.end()` or the range based for loop.
+for "array-like" data.
+
+To iterate over `data`, you can also use `kb_data` as a proxy. Both iterators and the range based for loop are supported. For example
+```c++
+for (auto it = kb_data.begin(); it != kb_data.end(); ++it) {}
+for (auto& v : kb_data) {}
+```
 
 
 ##### array
-`array` is also a `std::map` data structure. You can visit its elements by
+Each `Object` in `array` is an "array-like" data. It can be visited via
 ```c++
+// Different containers are supported
 std::vector<float> image_data = kb_data.array["image.data"].as<std::vector<float>>();
 std::deque<float> image_data = kb_data.array["image.data"].as<std::deque<float>>();
 std::array<float, 67108864> image_data = kb_data.array["image.data"].as<std::array<float, 67108864>>();
 ```
-You can also visit `array` via pointer, which can avoid the copy when constructing a container.
+In order to avoid the copy when constructing a container, you can also access the "array-like" data via pointers, e.g.
 ```c++
 float* ptr = kb_data.array["image.data"].data<float>();
 void* ptr = kb_data.array["image.data"].data();
 ```
 *Note: A strict type checking is applied to `array` when casting. Implicit type conversion is not allowed. You must specify the exact type in the template, e.g. for the above example, you are not allowed to put 'double' in the template.*
 
-##### Common inteface for `metadata`, `data` and `array`
+##### Member functions for `Object`
 
-Several useful member functions are implemented for all the data types
+- `std::string dtype()`
+Return the type for a scalar data and the data type inside the array for an "array-like" data.
 
-- `shape()`
-Return the shape of the data as a vector. For scalar data, it returns an empty vector.
+- `std::vector<std::size_t> shape()`
+Return an empty vector for a scalar data and the shape of array for an "array-like" data.
 
-- `size()`
-Return the size of a flatten array. For scalar data, it returns zero (to distinguish between a scalar data and an array of size 1).
-
-- `dtype()`
-Return the data type as a string. For "array-like" data, it returns the data type inside the container.
+- `std::size_t size()`
+Return 0 for a scalar data and the number of elements for an "array-like" data.
 
 Examples
 ```c++
+assert(kb_data["header.pulseCount"].dtype() == "uint64_t");
+assert(kb_data["header.pulseCount"].shape().empty());
+assert(kb_data["header.pulseCount"].size() == 0);
+ 
 assert(kb_data.array["image.data"].dtype() == "float");
 assert(kb_data.array["image.data"].shape()[0] == 16);
 assert(kb_data.array["image.data"].shape()[1] == 128);
