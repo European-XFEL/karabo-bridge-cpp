@@ -76,9 +76,15 @@ public:
     {}
 };
 
-class CastErrorObject : public CastError {
+class CastErrorMsgpackObject : public CastError {
 public:
-    explicit CastErrorObject(const std::string& msg) : CastError(msg)
+    explicit CastErrorMsgpackObject(const std::string& msg) : CastError(msg)
+    {}
+};
+
+class CastErrorArray : public CastError {
+public:
+    explicit CastErrorArray(const std::string& msg) : CastError(msg)
     {}
 };
 
@@ -171,7 +177,7 @@ public:
             else
                 error_msg = ("The expected type is " + dtype());
 
-            throw CastErrorObject(error_msg);
+            throw CastErrorMsgpackObject(error_msg);
         }
     }
 
@@ -211,6 +217,10 @@ struct as_imp {
 template<typename ElementType, std::size_t N>
 struct as_imp<std::array<ElementType, N>, ElementType> {
     std::array<ElementType, N> operator()(void*ptr_, std::size_t size) {
+        if (size != N)
+            throw CastErrorArray("The input size " + std::to_string(N)
+                                 + " is different from the expected size "
+                                 + std::to_string(size));
         auto ptr = reinterpret_cast<const ElementType*>(ptr_);
         std::array<ElementType, N> arr;
         memcpy(arr.data(), ptr, size * sizeof(ElementType));

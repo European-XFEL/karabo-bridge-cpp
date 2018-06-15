@@ -30,6 +30,7 @@ int main() {
 
     try {
         array_uint16.as<std::map<int, int>>();
+        assert(false);
     } catch (karabo_bridge::TypeMismatchErrorArray& e) {
         std::cout << e.what() << std::endl;
     }
@@ -40,6 +41,13 @@ int main() {
         array_uint16.data<int>();
         assert(false);
     } catch (karabo_bridge::TypeMismatchErrorArray& e) {
+        std::cout << e.what() << std::endl;
+    }
+
+    try {
+        array_uint16.as<std::array<uint16_t, 13>>();
+        assert(false);
+    } catch (karabo_bridge::CastErrorArray& e) {
         std::cout << e.what() << std::endl;
     }
 }

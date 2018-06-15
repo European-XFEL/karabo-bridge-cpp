@@ -31,7 +31,7 @@ int main() {
     try {
         obj_uint.as<int>();
         assert(false);
-    } catch (karabo_bridge::CastErrorObject& e) {
+    } catch (karabo_bridge::CastErrorMsgpackObject& e) {
         std::cout << e.what() << std::endl;
     }
 
@@ -49,7 +49,7 @@ int main() {
     try {
         obj_float.as<int>();
         assert(false);
-    } catch (karabo_bridge::CastErrorObject& e) {
+    } catch (karabo_bridge::CastErrorMsgpackObject& e) {
         std::cout << e.what() << std::endl;
     }
 
@@ -60,7 +60,7 @@ int main() {
     try {
         obj_nil.as<int>();
         assert(false);
-    } catch (karabo_bridge::CastErrorObject& e) {
+    } catch (karabo_bridge::CastErrorMsgpackObject& e) {
         std::cout << e.what() << std::endl;
     }
 
@@ -77,7 +77,7 @@ int main() {
     try {
         obj_arr.as<double>();
         assert(false);
-    } catch (karabo_bridge::CastErrorObject& e) {
+    } catch (karabo_bridge::CastErrorMsgpackObject& e) {
         std::cout << e.what() << std::endl;
     }
 
@@ -93,12 +93,12 @@ int main() {
     try {
         obj_bin.as<std::vector<float>>();
         assert(false);
-    } catch (karabo_bridge::CastErrorObject& e) {
+    } catch (karabo_bridge::CastErrorMsgpackObject& e) {
         std::cout << e.what() << std::endl;
     }
     try {
         obj_bin.as<std::vector<unsigned char>>();
-    } catch (karabo_bridge::CastErrorObject& e) {
+    } catch (karabo_bridge::CastErrorMsgpackObject& e) {
         throw;
     }
 }
