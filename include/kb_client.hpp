@@ -269,7 +269,7 @@ public:
 
     std::string dtype() const override { return dtype_; }
 
-    std::string containerType() const override { return "Array"; }
+    std::string containerType() const override { return "array-like"; }
 
     /*
      * Return a casted pointer to the held array data.
@@ -713,6 +713,7 @@ public:
             ss << "\nData\n" << std::string(4, '-') << "\n";
             for (auto& v : data.second) prettyStream<MsgpackObject>(v, ss);
 
+            ss << "\nArray or ImageData\n" << std::string(18, '-') << "\n";
             for (auto &v : data.second.array) prettyStream<Array>(v, ss);
 
             ss << "\n";

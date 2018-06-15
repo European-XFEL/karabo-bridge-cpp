@@ -11,7 +11,7 @@ int main() {
     assert(array_uint16.dtype() == "uint16_t");
     assert(array_uint16.shape() == std::vector<std::size_t>({2, 2, 3}));
     assert(array_uint16.size() == 12);
-    assert(array_uint16.containerType() == "Array");
+    assert(array_uint16.containerType() == "array-like");
     assert(*static_cast<uint16_t*>(array_uint16.data()) - 1 < 1e-10);
     assert(*array_uint16.data<uint16_t>() - 1 < 1e-10);
     assert(array_uint16.as<std::vector<uint16_t>>()
