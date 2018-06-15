@@ -69,9 +69,9 @@ public:
     }
 };
 
-class TypeMismatchErrorArray : public CastError {
+class TypeMismatchErrorNDArray : public CastError {
 public:
-    explicit TypeMismatchErrorArray(const std::string& msg)
+    explicit TypeMismatchErrorNDArray(const std::string& msg)
         : CastError(msg)
     {}
 };
@@ -82,9 +82,9 @@ public:
     {}
 };
 
-class CastErrorArray : public CastError {
+class CastErrorNDArray : public CastError {
 public:
-    explicit CastErrorArray(const std::string& msg) : CastError(msg)
+    explicit CastErrorNDArray(const std::string& msg) : CastError(msg)
     {}
 };
 
@@ -218,7 +218,7 @@ template<typename ElementType, std::size_t N>
 struct as_imp<std::array<ElementType, N>, ElementType> {
     std::array<ElementType, N> operator()(void*ptr_, std::size_t size) {
         if (size != N)
-            throw CastErrorArray("The input size " + std::to_string(N)
+            throw CastErrorNDArray("The input size " + std::to_string(N)
                                  + " is different from the expected size "
                                  + std::to_string(size));
         auto ptr = reinterpret_cast<const ElementType*>(ptr_);
@@ -262,15 +262,15 @@ public:
      * Copy the data into a vector.
      *
      * Exceptions:
-     * TypeMismatchErrorArray: if type mismatches
-     * CastErrorArray: if cast fails
+     * TypeMismatchErrorNDArray: if type mismatches
+     * CastErrorNDArray: if cast fails
      */
     template<typename Container,
              typename = typename std::enable_if<!std::is_integral<Container>::value>::type>
     Container as() const {
         typedef typename Container::value_type ElementType;
         if (!checkTypeByString<ElementType>(dtype_))
-            throw TypeMismatchErrorArray("The expected type is a(n) "
+            throw TypeMismatchErrorNDArray("The expected type is a(n) "
                                          + containerType() + " of " + dtype());
         detail::as_imp<Container, ElementType> as_imp_instance;
         return as_imp_instance(ptr_, size());
@@ -291,7 +291,7 @@ public:
     template<typename T>
     T* data() const {
         if (!checkTypeByString<T>(dtype_))
-            throw TypeMismatchErrorArray("The expected pointer type is " + dtype());
+            throw TypeMismatchErrorNDArray("The expected pointer type is " + dtype());
         return reinterpret_cast<T*>(ptr_);
     }
 

@@ -24,14 +24,14 @@ int main() {
     try {
         array_uint16.as<std::vector<int>>();
         assert(false);
-    } catch (karabo_bridge::TypeMismatchErrorArray& e) {
+    } catch (karabo_bridge::TypeMismatchErrorNDArray& e) {
         std::cout << e.what() << std::endl;
     }
 
     try {
         array_uint16.as<std::map<int, int>>();
         assert(false);
-    } catch (karabo_bridge::TypeMismatchErrorArray& e) {
+    } catch (karabo_bridge::TypeMismatchErrorNDArray& e) {
         std::cout << e.what() << std::endl;
     }
 
@@ -40,14 +40,14 @@ int main() {
     try {
         array_uint16.data<int>();
         assert(false);
-    } catch (karabo_bridge::TypeMismatchErrorArray& e) {
+    } catch (karabo_bridge::TypeMismatchErrorNDArray& e) {
         std::cout << e.what() << std::endl;
     }
 
     try {
         array_uint16.as<std::array<uint16_t, 13>>();
         assert(false);
-    } catch (karabo_bridge::CastErrorArray& e) {
+    } catch (karabo_bridge::CastErrorNDArray& e) {
         std::cout << e.what() << std::endl;
     }
 }
