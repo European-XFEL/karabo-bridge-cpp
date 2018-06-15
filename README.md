@@ -118,7 +118,7 @@ image.gain, array-like, [16, 128, 512, 64], uint16_t
 Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and `kb_data` is a struct containing `metadata`, `data` and `array`, where `array` refers to big chunk of data.
 
 ##### metadata
-`metadataYou` is a `std::map` data structure. You can visit its element by
+`metadata` is a `std::map` data structure. You can visit its elements by
 ```c++
 uint64_t timestamp_tid = kb_data.metadata["timestamp.tid"].as<uint64_t>();
 std::string timestamp.frac = kb_data.metadata["timestamp.frac"].as<std::string>();
@@ -137,7 +137,7 @@ You can also iterate over data through iterator, i.e. `kb_data.begin()`, `kb_dat
 
 
 ##### array
-`array` is also a `std::map` data structure. You can visit its element by
+`array` is also a `std::map` data structure. You can visit its elements by
 ```c++
 std::vector<float> image_data = kb_data.array["image.data"].as<std::vector<float>>();
 std::deque<float> image_data = kb_data.array["image.data"].as<std::deque<float>>();
