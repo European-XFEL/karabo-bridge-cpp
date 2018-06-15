@@ -463,9 +463,6 @@ struct kb_data {
     const_iterator end() const { return data_.end(); }
 
     template<typename T>
-    void setData(T&& value) { data_ = std::forward<T>(value); }
-
-    template<typename T>
     std::pair<iterator, bool> insert(T&& value) {
         return data_.insert(std::forward<T>(value));
     }
@@ -651,7 +648,8 @@ public:
                 msgpack::unpack(oh_data, static_cast<const char*>(it->data()), it->size());
                 kbdt.metadata = header_unpacked.at("metadata").as<ObjectMap>();
 
-                kbdt.setData(oh_data.get().as<ObjectMap>());
+                auto data_unpacked = oh_data.get().as<ObjectMap>();
+                for (auto& v : data_unpacked) kbdt.insert(v); // shallow copy
 
                 kbdt.appendHandle(std::move(oh_header));
                 kbdt.appendHandle(std::move(oh_data));

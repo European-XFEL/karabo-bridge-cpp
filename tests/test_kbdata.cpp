@@ -25,13 +25,6 @@ int main() {
     // copy from obj_data
     for (auto & v : obj_data) { data.insert(v); }
     assert(obj_data["obj1"].as<int>() == 100);
-    data.setData(std::move(obj_data));
-    try {
-        // value is moved but key is const which cannot be moved
-        obj_data["obj1"].as<int>();
-    } catch (karabo_bridge::CastErrorObject& e) {
-        std::cout << e.what() << std::endl;
-    }
 
     // check iterator
     auto it = data.begin();
