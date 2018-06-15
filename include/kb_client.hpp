@@ -707,13 +707,13 @@ public:
 
             ss << "path, container, container shape, type\n";
 
-            ss << "\nMetadata\n" << std::string(8, '-') << "\n";
+            ss << "\nmetadata\n" << std::string(8, '-') << "\n";
             for (auto&v : data.second.metadata) prettyStream<MsgpackObject>(v, ss);
 
-            ss << "\nData\n" << std::string(4, '-') << "\n";
+            ss << "\ndata\n" << std::string(4, '-') << "\n";
             for (auto& v : data.second) prettyStream<MsgpackObject>(v, ss);
 
-            ss << "\nArray or ImageData\n" << std::string(18, '-') << "\n";
+            ss << "\narray\n" << std::string(5, '-') << "\n";
             for (auto &v : data.second.array) prettyStream<Array>(v, ss);
 
             ss << "\n";
