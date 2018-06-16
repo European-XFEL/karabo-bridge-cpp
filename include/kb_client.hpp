@@ -159,6 +159,12 @@ public:
 
     ~MsgpackObject() override = default;
 
+    MsgpackObject(const MsgpackObject&) = default;
+    MsgpackObject& operator=(const MsgpackObject&) = default;
+
+    MsgpackObject(MsgpackObject&&) = default;
+    MsgpackObject& operator=(MsgpackObject&&) = default;
+
     /*
      * Cast the held msgpack::object to a given type.
      *
@@ -254,9 +260,15 @@ public:
         dtype_ = dtype;
     }
 
-    std::size_t size() const override { return size_; }
-
     ~NDArray() override = default;
+
+    NDArray(const NDArray&) = default;
+    NDArray& operator=(const NDArray&) = default;
+
+    NDArray(NDArray&&) = default;
+    NDArray& operator=(NDArray&&) = default;
+
+    std::size_t size() const override { return size_; }
 
     /*
      * Copy the data into a vector.
@@ -453,6 +465,8 @@ private:
  */
 struct kb_data {
     kb_data() = default;
+
+    ~kb_data() = default;
 
     kb_data(const kb_data&) = delete;
     kb_data& operator=(const kb_data&) = delete;
