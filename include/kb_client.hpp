@@ -225,8 +225,8 @@ struct as_imp<std::array<ElementType, N>, ElementType> {
     std::array<ElementType, N> operator()(void*ptr_, std::size_t size) {
         if (size != N)
             throw CastErrorNDArray("The input size " + std::to_string(N)
-                                 + " is different from the expected size "
-                                 + std::to_string(size));
+                                   + " is different from the expected size "
+                                   + std::to_string(size));
         auto ptr = reinterpret_cast<const ElementType*>(ptr_);
         std::array<ElementType, N> arr;
         memcpy(arr.data(), ptr, size * sizeof(ElementType));
@@ -283,7 +283,7 @@ public:
         typedef typename Container::value_type ElementType;
         if (!checkTypeByString<ElementType>(dtype_))
             throw TypeMismatchErrorNDArray("The expected type is a(n) "
-                                         + containerType() + " of " + dtype());
+                                           + containerType() + " of " + dtype());
         detail::as_imp<Container, ElementType> as_imp_instance;
         return as_imp_instance(ptr_, size());
     }
@@ -298,7 +298,7 @@ public:
      * Return a casted pointer to the held array data.
      *
      * Exceptions:
-     * TypeMismatchErrorArray: if type mismatches
+     * TypeMismatchErrorNDArray: if type mismatches
      */
     template<typename T>
     T* data() const {
@@ -457,11 +457,11 @@ private:
 /*
  * Data structure presented to the user.
  *
- * The data member "metadata" hold a map of meta data;
- * The data member "array" hold a map of array data, which is usually a
- * big chunk of data;
- * The data member "data" hold a map of normal data, where there can have
- * both scalar data and small arrays.
+ * - The data member "metadata" holds a map of meta data;
+ * - The data member "array" holds a map of array data, which is usually a
+ *   big chunk of data;
+ * - The data member "data_" holds a map of normal data, which can be either
+ *   scalar data or small arrays.
  */
 struct kb_data {
     kb_data() = default;
@@ -644,7 +644,7 @@ public:
      * Request and return the next data from the server.
      *
      * Exceptions:
-     * std::runtime_error if unknown "content" is found
+     * std::runtime_error if unexpected message number or unknown "content" is found
      */
     std::map<std::string, kb_data> next() {
         std::map<std::string, kb_data> data_pkg;
