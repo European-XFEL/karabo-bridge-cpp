@@ -482,10 +482,12 @@ struct kb_data {
 
     MsgpackObject& operator[](const std::string& key) { return data_.at(key); }
 
-    iterator begin() { return data_.begin(); }
-    iterator end() { return data_.end(); }
-    const_iterator begin() const { return data_.begin(); }
-    const_iterator end() const { return data_.end(); }
+    iterator begin() noexcept { return data_.begin(); }
+    iterator end() noexcept { return data_.end(); }
+    const_iterator begin() const noexcept { return data_.begin(); }
+    const_iterator end() const noexcept { return data_.end(); }
+    const_iterator cbegin() const noexcept { return data_.cbegin(); }
+    const_iterator cend() const noexcept { return data_.cend(); }
 
     template<typename T>
     std::pair<iterator, bool> insert(T&& value) {
