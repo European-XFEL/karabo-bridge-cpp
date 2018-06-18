@@ -72,43 +72,6 @@ karabo_bridge::Client client;
 client.connect("tcp://localhost:1234")
 ```
 
-#### showMsg()
-
-Use `showMsg()` member function returns a string which tells you the multipart messsage structure.
-
-*Note: this member function consumes data!*
-
-You will see something like
-```md
-
-----------new message----------
-
-"content": "msgpack",
-"source": "camera:output"
-
-----------new message----------
-...
-"data.image.geometry.alignment.offsets": [0,0,0],
-"data.image.encoding": "GRAY",
-"data.image.bitsPerPixel": 32,
-...
-"metadata.source": "camera:output",
-"data.image.dimensions": [1024,1024],
-"data.image.dimensionTypes": [0,0]
-
-----------new message----------
-
-"content": "array",
-"dtype": "uint32",
-"source": "camera:output",
-"path": "data.image.data",
-"shape": [1024,1024]
-
-----------new message----------
-0  # A random integer following a message containing the Array/ImageData header indicates a chunk of byte stream.
-
-```
-
 #### showNext()
 
 Use `showNext()` member function to return a string which tells you the data structure of the received multipart message.
@@ -118,51 +81,104 @@ Use `showNext()` member function to return a string which tells you the data str
 You will see something like
 
 ```md
-source: SPB_DET_AGIPD1M-1/DET/detector
-Total bytes received: 130025932
+source: SPB_DET_AGIPD1M-1/DET/detector-1
+Total bytes received: 402656475
 
-path, type, container data type, container shape
-detector.data, MSGPACK_OBJECT_BIN, byte, [416]
-...
-header.trainId, uint64_t
-image.passport, MSGPACK_OBJECT_ARRAY, string, [3]
-metadata.source, string
-metadata.timestamp, double
-metadata.timestamp.frac, string
-...
-image.cellId: Array, uint16_t, [31]
-image.data: Array, uint16_t, [31, 16, 512, 128]
-...
+path, container, container shape, type
+
+metadata
+--------
+source, , , string
+timestamp, , , double
+timestamp.frac, , , string
+timestamp.sec, , , string
+timestamp.tid, , , uint64_t
+
+data   # normal data
+----
+detector.data, array-like, [416], char
+header.dataId, , , uint64_t
+header.pulseCount, , , uint64_t
+image.passport, array-like, [3], string
+
+array   # Big chunk of data
+-----
+image.data, array-like, [16, 128, 512, 64], float
+image.gain, array-like, [16, 128, 512, 64], uint16_t
 ```
 
 #### next()
 
-Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and `kb_data` is
+Use `next()` member function to return a `std::map<std::string, karabo_bridge::kb_data>`, where the key is the name of the data source and the value is a `kb_data` struct containing `metadata`, `data` and `array`. Each of them is a `std::map<std::string, object>`. It should be noted that "objects" in `metadata`, `data` and `array` are different.
+
+##### metadata
+Each "object" in `metadata` is a scalar data and can be visited via
 ```c++
-struct kb_data {
-    std::map<std::string, Ojbect> meta_data;
-    std::map<std::string, Object> msgpack_data;
-    std::map<std::string, Array> array;
-    
-    Object& operator[](const std::string& key) { return msgpack_data.at(key); }
-    
-    std::size_t size();
-};
+uint64_t timestamp_tid = kb_data.metadata["timestamp.tid"].as<uint64_t>();
+std::string timestamp.frac = kb_data.metadata["timestamp.frac"].as<std::string>();
 ```
-You can visit the data members by
+
+##### data
+Each "object" in `data` can be either a scalar data or an "array-like" data. It can be visited directly via
 ```c++
-// Access directly the data member `msgpack_data` 
-auto pulseCount = result["data.image.bitsPerPixel"].as<uint64_t>()
-auto dataImageDimension = result["data.image.dimensions"].as<std::vector<uint64_t>>()
+uint64_t header_pulsecount = kb_data["header.pulseCount"].as<uint64_t>();
+```
+for scalar data and
+```c++
+// Different containers are supported
+std::deque<std::string> image_passport = kb_data["image.passport"].as<std::deque<std::string>>();
+std::array<std::string, 3> image_passport = kb_data["image.passport"].as<std::array<std::string>, 3>();
+std::vector<uint8_t> detector_data = kb_data["detector.data"].as<std::vector<uint8_t>>();
+```
+for "array-like" data.
 
-// Access the data member `array` which is the "array" or "ImageData" represented by char arrays
-// Note:: you are responsible to give the correct data type, otherwise it leads to undefined behavior!
-std::vector<uint64_t> imageData = result.array["data.image.data"].as<uint64_t>()
+To iterate over `data`, you can also use `kb_data` as a proxy. Both iterators and the range based for loop are supported. For example
+```c++
+for (auto it = kb_data.begin(); it != kb_data.end(); ++it) {}
+for (auto& v : kb_data) {}
+```
 
-// Access the data in Array object without copy
-void* ptr = data.array["image.data"].data();
-// or
-auto ptr = data.array["image.data"].data<uint16_t>();
+
+##### array
+Each "object" in `array` is an "array-like" data. It can be visited via
+```c++
+// Different containers are supported
+std::vector<float> image_data = kb_data.array["image.data"].as<std::vector<float>>();
+std::deque<float> image_data = kb_data.array["image.data"].as<std::deque<float>>();
+std::array<float, 67108864> image_data = kb_data.array["image.data"].as<std::array<float, 67108864>>();
+```
+Since `array` holds big chunk of data, in order to avoid the copy when constructing a container, you can also access the "array-like" data via pointers, e.g.
+```c++
+float* ptr = kb_data.array["image.data"].data<float>();
+void* ptr = kb_data.array["image.data"].data();
+```
+*Note: A strict type checking is applied to `array` when casting. Implicit type conversion is not allowed. You must specify the exact type in the template, e.g. for the above example, you are not allowed to put 'double' in the template.*
+
+##### Member functions for "object"
+
+"objects" in `metadata`, `data` and `array` share the following common interface:
+
+- `std::string dtype()`
+Return the type for a scalar data and the data type inside the array for an "array-like" data.
+
+- `std::vector<std::size_t> shape()`
+Return an empty vector for a scalar data and the shape of array for an "array-like" data.
+
+- `std::size_t size()`
+Return 0 for a scalar data and the number of elements for an "array-like" data.
+
+Examples
+```c++
+assert(kb_data["header.pulseCount"].dtype() == "uint64_t");
+assert(kb_data["header.pulseCount"].shape().empty());
+assert(kb_data["header.pulseCount"].size() == 0);
+ 
+assert(kb_data.array["image.data"].dtype() == "float");
+assert(kb_data.array["image.data"].shape()[0] == 16);
+assert(kb_data.array["image.data"].shape()[1] == 128);
+assert(kb_data.array["image.data"].shape()[2] == 512);
+assert(kb_data.array["image.data"].shape()[3] == 64);
+assert(kb_data.array["image.data"].size() == 16*128*512*64);
 ```
 
 ## Tools

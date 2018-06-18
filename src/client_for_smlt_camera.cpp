@@ -47,9 +47,9 @@ int main (int argc, char* argv[]) {
         assert(data["data.image.dimensions"].as<std::vector<uint64_t>>() == std::vector<uint64_t>({1024, 1024}));
 
         assert(data.array["data.image.data"].dtype() == "uint32_t");
-        assert(data.array["data.image.data"].shape() == std::vector<unsigned int>({1024, 1024}));
+        assert(data.array["data.image.data"].shape() == std::vector<std::size_t>({1024, 1024}));
         start = std::chrono::high_resolution_clock::now();
-        auto image_data = data.array["data.image.data"].as<uint32_t>();
+        auto image_data = data.array["data.image.data"].as<std::vector<uint32_t>>();
         end = std::chrono::high_resolution_clock::now();
         std::cout << ", time for processing a 1024x1024 uint32_t image data: "
                   << std::fixed << std::setprecision(3)

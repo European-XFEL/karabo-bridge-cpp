@@ -59,204 +59,251 @@ std::map<msgpack::type::object_type, std::string> msgpack_type_map = {
 
 // Define exceptions to ease debugging
 
-class TypeMismatchError : public std::exception {
+class CastError : public std::exception {
     std::string msg_;
 public:
-    explicit TypeMismatchError(const std::string& msg) : msg_(msg) {}
+    explicit CastError(const std::string& msg) : msg_(msg) {}
 
     virtual const char* what() const throw() {
         return msg_.c_str() ;
     }
 };
 
-class TypeMismatchErrorArray : public TypeMismatchError {
+class TypeMismatchErrorNDArray : public CastError {
 public:
-    explicit TypeMismatchErrorArray(const std::string& msg)
-        : TypeMismatchError(msg)
+    explicit TypeMismatchErrorNDArray(const std::string& msg)
+        : CastError(msg)
     {}
 };
 
-class TypeMismatchErrorMsgpack : public TypeMismatchError {
+class CastErrorMsgpackObject : public CastError {
 public:
-    explicit TypeMismatchErrorMsgpack(const std::string& msg)
-        : TypeMismatchError(msg)
+    explicit CastErrorMsgpackObject(const std::string& msg) : CastError(msg)
     {}
 };
 
-class CastErrorMsgpack : public std::bad_cast {
-    virtual const char* what() const throw() {
-        return "Mismatched container type or container data type!";
-    }
+class CastErrorNDArray : public CastError {
+public:
+    explicit CastErrorNDArray(const std::string& msg) : CastError(msg)
+    {}
 };
 
 /*
- * Use to check data type before casting an Object object.
- *
- * Implicit type conversion of scalar data (including string) is not allowed.
- */
-template <typename T>
-void checkTypeByIndex(msgpack::type::object_type idx) {
-    // cannot check containers, NIL?
-    if (idx == msgpack::type::object_type::NIL ||
-        idx == msgpack::type::object_type::ARRAY ||
-        idx == msgpack::type::object_type::MAP ||
-        idx == msgpack::type::object_type::BIN ||
-        idx == msgpack::type::object_type::EXT) return;
-
-    if (idx == msgpack::type::object_type::BOOLEAN
-        && std::is_same<T, bool>::value) return;
-    if (idx == msgpack::type::object_type::POSITIVE_INTEGER
-        && std::is_same<T, uint64_t>::value) return;
-    if (idx == msgpack::type::object_type::NEGATIVE_INTEGER
-        && std::is_same<T, int64_t>::value) return;
-    if (idx == msgpack::type::object_type::FLOAT32
-        && std::is_same<T, float>::value) return;
-    if (idx == msgpack::type::object_type::FLOAT64
-        && std::is_same<T, double>::value) return;
-    if (idx == msgpack::type::object_type::STR
-        && std::is_same<T, std::string>::value) return;
-
-    throw TypeMismatchErrorMsgpack("The expected type is "
-                                   + msgpack_type_map.at(idx) + "!");
-}
-
-/*
- * Use to check data type before casting an Array object.
+ * Use to check data type before casting an NDArray object.
  *
  * Implicit type conversion is not allowed.
  */
 template <typename T>
-void checkTypeByString(const std::string& type_string) {
-    if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return;
-    if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return;
-    if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return;
-    if (type_string == "uint8_t" && std::is_same<T, uint8_t>::value) return;
-    if (type_string == "int64_t" && std::is_same<T, int64_t>::value) return;
-    if (type_string == "int32_t" && std::is_same<T, int32_t>::value) return;
-    if (type_string == "int16_t" && std::is_same<T, int16_t>::value) return;
-    if (type_string == "int8_t" && std::is_same<T, int8_t>::value) return;
-    if (type_string == "float" && std::is_same<T, float>::value) return;
-    if (type_string == "double" && std::is_same<T, double>::value) return;
-    if (type_string == "bool" && std::is_same<T, bool>::value) return;
-
-    throw TypeMismatchErrorArray("The expected type is " + type_string + "!");
+bool checkTypeByString(const std::string& type_string) {
+    if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return true;
+    if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return true;
+    if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return true;
+    if (type_string == "uint8_t" && std::is_same<T, uint8_t>::value) return true;
+    if (type_string == "int64_t" && std::is_same<T, int64_t>::value) return true;
+    if (type_string == "int32_t" && std::is_same<T, int32_t>::value) return true;
+    if (type_string == "int16_t" && std::is_same<T, int16_t>::value) return true;
+    if (type_string == "int8_t" && std::is_same<T, int8_t>::value) return true;
+    if (type_string == "float" && std::is_same<T, float>::value) return true;
+    if (type_string == "double" && std::is_same<T, double>::value) return true;
+    return (type_string == "bool" && std::is_same<T, bool>::value);
 }
 
 /*
- * A container hold a msgpack::object for deferred unpack.
+ * Abstract class for MsgpackObject and NDArray.
  */
 class Object {
-    // msgpack::object has a shallow copy constructor
-    msgpack::object value_;
+
+protected:
+    // size of the flattened array, 0 for scalar data and NIL
     std::size_t size_;
+    // data type, if container, it refers to the data type in the container
     std::string dtype_;
 
 public:
-    Object() = default;  // must be default constructable
+    Object() : size_(0) {};
+    virtual ~Object() = default;
 
-    explicit Object(const msgpack::object& value):
-        value_(value),
-        size_(
-            [&value]() -> std::size_t {
-                if (value.type == msgpack::type::object_type::NIL) return 0;
-                if (value.type == msgpack::type::object_type::ARRAY ||
-                        value.type == msgpack::type::object_type::MAP ||
-                        value.type == msgpack::type::object_type::BIN)
-                    return value.via.array.size;
-                return 1;
-                }()
-            ),
-        dtype_(msgpack_type_map.at(value.type))
-    {}
+    virtual std::size_t size() const = 0;
+    virtual std::string dtype() const = 0;
+    // empty vector for scalar data
+    virtual std::vector<std::size_t> shape() const = 0;
+    // empty string for scalar data
+    virtual std::string containerType() const = 0;
+};
 
-    ~Object() = default;
+/*
+ * A container that holds a msgpack::object for deferred unpack.
+ */
+class MsgpackObject : public Object {
+
+    msgpack::object value_; // msgpack::object has a shallow copy constructor
+
+public:
+    MsgpackObject() = default;  // must be default constructable
+
+    explicit MsgpackObject(const msgpack::object& value): value_(value) {
+        if (value.type == msgpack::type::object_type::ARRAY ||
+                value.type == msgpack::type::object_type::MAP ||
+                value.type == msgpack::type::object_type::BIN)
+            size_ = value.via.array.size;
+
+        if (value.type == msgpack::type::object_type::ARRAY)
+            dtype_ = msgpack_type_map.at(value.via.array.ptr[0].type);
+        else if (value.type == msgpack::type::object_type::BIN)
+            dtype_ = "char";
+        else if (value.type == msgpack::type::object_type::MAP
+            || value.type == msgpack::type::object_type::EXT)
+            dtype_ = "undefined";
+        else dtype_ = msgpack_type_map.at(value.type);
+    }
+
+    ~MsgpackObject() override = default;
+
+    MsgpackObject(const MsgpackObject&) = default;
+    MsgpackObject& operator=(const MsgpackObject&) = default;
+
+    MsgpackObject(MsgpackObject&&) = default;
+    MsgpackObject& operator=(MsgpackObject&&) = default;
 
     /*
      * Cast the held msgpack::object to a given type.
      *
      * Exceptions:
-     * TypeMismatchErrorMsgpack: if scalar type mismatches
-     * CastErrorMsgpack: if cast (non-scalar except NIL) fails
+     * CastErrorMsgpackObject: if cast fails
      */
     template<typename T>
     T as() const {
-        checkTypeByIndex<T>(value_.type);
         try {
             return value_.as<T>();
         } catch(std::bad_cast& e) {
-            throw CastErrorMsgpack();
+            std::string error_msg;
+            if (size_)
+                error_msg = ("The expected type is a(n) "
+                             + containerType() + " of " + dtype());
+            else
+                error_msg = ("The expected type is " + dtype());
+
+            throw CastErrorMsgpackObject(error_msg);
         }
     }
 
-    std::string dtype() const { return dtype_; }
+    std::string dtype() const override { return dtype_; }
 
-    std::size_t size() const { return size_; }
+    std::size_t size() const override { return size_; }
 
-    std::string subType() const {
-        if (!size_) return "";  // NIL
-        if (size_ == 1) return dtype_;
-        if (dtype_ == "MSGPACK_OBJECT_ARRAY") return msgpack_type_map.at(value_.via.array.ptr[0].type);
-        // TODO: should I give "char" or "unsigned char"?
-        if (dtype_ == "MSGPACK_OBJECT_BIN") return "byte";
-        return "unimplemented";
+    std::vector<std::size_t> shape() const override {
+        if (size_) return std::vector<std::size_t>({size_});
+        return std::vector<std::size_t>();
+    }
+
+    std::string containerType() const override {
+        if (!size_) return ""; // scalar and NIL
+        if (value_.type == msgpack::type::object_type::ARRAY ||
+                value_.type == msgpack::type::object_type::BIN)
+            return "array-like";
+        if (value_.type == msgpack::type::object_type::MAP) return "map";
+        return msgpack_type_map.at(value_.type);
     }
 };
+
+using ObjectMap = std::map<std::string, MsgpackObject>;
+using ObjectPair = std::pair<std::string, MsgpackObject>;
+
+namespace detail {
+
+template<typename Container, typename ElementType>
+struct as_imp {
+    Container operator()(void* ptr_, std::size_t size) {
+        auto ptr = reinterpret_cast<const ElementType*>(ptr_);
+        return Container(ptr, ptr + size);
+    }
+};
+
+// partial specialization for std::array
+template<typename ElementType, std::size_t N>
+struct as_imp<std::array<ElementType, N>, ElementType> {
+    std::array<ElementType, N> operator()(void*ptr_, std::size_t size) {
+        if (size != N)
+            throw CastErrorNDArray("The input size " + std::to_string(N)
+                                   + " is different from the expected size "
+                                   + std::to_string(size));
+        auto ptr = reinterpret_cast<const ElementType*>(ptr_);
+        std::array<ElementType, N> arr;
+        memcpy(arr.data(), ptr, size * sizeof(ElementType));
+        return arr;
+    }
+};
+
+}  // detail
 
 /*
  * A container held a pointer to the data chunk and other useful information.
  */
-class Array {
+class NDArray : public Object {
+
     void* ptr_; // pointer to the data chunk
-    std::vector<unsigned int> shape_; // shape of the array
-    std::size_t size_; // size of the flattened array
-    std::string dtype_; // data type
+    std::vector<std::size_t> shape_; // shape of the array
 
 public:
-    Array() = default;
+    NDArray() = default;
 
     // shape and dtype should be moved into the constructor
-    Array(void* ptr, const std::vector<unsigned int>& shape, const std::string& dtype):
+    NDArray(void* ptr, const std::vector<std::size_t>& shape, const std::string& dtype):
         ptr_(ptr),
-        shape_(shape),
-        size_(
-            [&shape]() {
-                std::size_t size = 1;
-                // Overflow is not expected since otherwise zmq::message_t
-                // cannot hold the data.
-                for (auto& v : shape) size *= v;
-                return size;
-            }()
-        ),
-        dtype_(dtype) {}
+        shape_(shape)
+    {
+        std::size_t size = 1;
+        // Overflow is not expected since otherwise zmq::message_t
+        // cannot hold the data.
+        for (auto& v : shape) size *= v;
+        size_ = size;
+        dtype_ = dtype;
+    }
 
-    std::size_t size() const { return size_; }
+    ~NDArray() override = default;
+
+    NDArray(const NDArray&) = default;
+    NDArray& operator=(const NDArray&) = default;
+
+    NDArray(NDArray&&) = default;
+    NDArray& operator=(NDArray&&) = default;
+
+    std::size_t size() const override { return size_; }
 
     /*
      * Copy the data into a vector.
      *
      * Exceptions:
-     * TypeMismatchErrorArray: if type mismatches
+     * TypeMismatchErrorNDArray: if type mismatches
+     * CastErrorNDArray: if cast fails
      */
-    template<typename T>
-    std::vector<T> as() const {
-        checkTypeByString<T>(dtype_);
-        auto ptr = reinterpret_cast<const T*>(ptr_);
-        return std::vector<T>(ptr, ptr + size());
+    template<typename Container,
+             typename = typename std::enable_if<!std::is_integral<Container>::value>::type>
+    Container as() const {
+        typedef typename Container::value_type ElementType;
+        if (!checkTypeByString<ElementType>(dtype_))
+            throw TypeMismatchErrorNDArray("The expected type is a(n) "
+                                           + containerType() + " of " + dtype());
+        detail::as_imp<Container, ElementType> as_imp_instance;
+        return as_imp_instance(ptr_, size());
     }
 
-    std::vector<unsigned int> shape() const { return shape_; }
+    std::vector<std::size_t> shape() const override { return shape_; }
 
-    std::string dtype() const { return dtype_; }
+    std::string dtype() const override { return dtype_; }
+
+    std::string containerType() const override { return "array-like"; }
 
     /*
      * Return a casted pointer to the held array data.
      *
      * Exceptions:
-     * TypeMismatchErrorArray: if type mismatches
+     * TypeMismatchErrorNDArray: if type mismatches
      */
     template<typename T>
     T* data() const {
-        checkTypeByString<T>(dtype_);
+        if (!checkTypeByString<T>(dtype_))
+            throw TypeMismatchErrorNDArray("The expected pointer type is " + dtype());
         return reinterpret_cast<T*>(ptr_);
     }
 
@@ -275,9 +322,9 @@ namespace adaptor{
  * template specialization for karabo_bridge::object
  */
 template<>
-struct as<karabo_bridge::Object> {
-    karabo_bridge::Object operator()(msgpack::object const& o) const {
-        return karabo_bridge::Object(o.as<msgpack::object>());
+struct as<karabo_bridge::MsgpackObject> {
+    karabo_bridge::MsgpackObject operator()(msgpack::object const& o) const {
+        return karabo_bridge::MsgpackObject(o.as<msgpack::object>());
     }
 };
 
@@ -410,11 +457,16 @@ private:
 /*
  * Data structure presented to the user.
  *
- * There are two different types of array: one is msgpack::ARRAY which is
- * encapsulated by Object and another is byte array which is encapsulated in class Array.
+ * - The data member "metadata" holds a map of meta data;
+ * - The data member "array" holds a map of array data, which is usually a
+ *   big chunk of data;
+ * - The data member "data_" holds a map of normal data, which can be either
+ *   scalar data or small arrays.
  */
 struct kb_data {
     kb_data() = default;
+
+    ~kb_data() = default;
 
     kb_data(const kb_data&) = delete;
     kb_data& operator=(const kb_data&) = delete;
@@ -422,12 +474,24 @@ struct kb_data {
     kb_data(kb_data&&) = default;
     kb_data& operator=(kb_data&&) = default;
 
-    std::map<std::string, Object> metadata;
-    std::map<std::string, Object> msgpack_data;
-    std::map<std::string, Array> array;
+    using iterator = ObjectMap::iterator;
+    using const_iterator = ObjectMap::const_iterator;
 
-    Object& operator[](const std::string& key) {
-        return msgpack_data.at(key);
+    ObjectMap metadata;
+    std::map<std::string, NDArray> array;
+
+    MsgpackObject& operator[](const std::string& key) { return data_.at(key); }
+
+    iterator begin() noexcept { return data_.begin(); }
+    iterator end() noexcept { return data_.end(); }
+    const_iterator begin() const noexcept { return data_.begin(); }
+    const_iterator end() const noexcept { return data_.end(); }
+    const_iterator cbegin() const noexcept { return data_.cbegin(); }
+    const_iterator cend() const noexcept { return data_.cend(); }
+
+    template<typename T>
+    std::pair<iterator, bool> insert(T&& value) {
+        return data_.insert(std::forward<T>(value));
     }
 
     // Use bytesReceived for clarity
@@ -437,7 +501,7 @@ struct kb_data {
 
     std::size_t bytesReceived() const {
         std::size_t size_ = 0;
-        for (auto& m: mpmsg_) size_ += m.size();
+        for (auto& m : mpmsg_) size_ += m.size();
         return size_;
     }
 
@@ -446,12 +510,21 @@ struct kb_data {
     }
 
     void appendHandle(msgpack::object_handle&& oh) {
-        handle_ = std::move(oh);
+        handles_.push_back(std::move(oh));
+    }
+
+    void swap(kb_data& other) {
+        metadata.swap(other.metadata);
+        array.swap(other.array);
+        data_.swap(other.data_);
+        mpmsg_.swap(other.mpmsg_);
+        handles_.swap(other.handles_);
     }
 
 private:
+    ObjectMap data_;
     std::vector<zmq::message_t> mpmsg_; // maintain the lifetime of data
-    msgpack::object_handle handle_; // maintain the lifetime of data
+    std::vector<msgpack::object_handle> handles_; // maintain the lifetime of data
 };
 
 /*
@@ -486,6 +559,8 @@ std::string parseMultipartMsg(const MultipartMsg& mpmsg, bool boundary=true) {
  */
 template <typename T>
 std::string vectorToString(const std::vector<T>& vec) {
+    if (vec.empty()) return "";
+
     std::stringstream ss;
     ss << "[";
     for (std::size_t i=0; i<vec.size(); ++i) {
@@ -543,26 +618,18 @@ class Client {
     }
 
     /*
-     * Add formatted output of an Object to the stringstream.
+     * Add formatted output to a stringstream.
      */
-    void prettyStream(const std::pair<std::string, Object>& v, std::stringstream& ss) {
-        ss << v.first << ", " << v.second.dtype();
+    template <typename T>
+    void prettyStream(const std::pair<std::string, T>& v, std::stringstream& ss) {
+        ss << v.first
+           << ", " << v.second.containerType()
+           << ", " << vectorToString(v.second.shape())
+           << ", " << v.second.dtype();
 
-        if (v.second.dtype() == "MSGPACK_OBJECT_ARRAY") { // msgpack::ARRAY
-            ss << ", " << v.second.subType() << ", [" << v.second.size() << "]\n";
-
-        } else if (v.second.dtype() == "MSGPACK_OBJECT_MAP") { // msgpack::MAP
-            ss << " (Check...unexpected data type!)\n";
-
-        } else if (v.second.dtype() == "MSGPACK_OBJECT_BIN") { // msgpack::BIN
-            ss << ", " << v.second.subType() << ", [" << v.second.size() << "]\n";
-
-        } else if (v.second.dtype() == "MSGPACK_OBJECT_EXT") { // msgpack::EXT
-            ss << " (Check...unexpected data type!)\n";
-
-        } else {
-            ss << "\n";
-        }
+        if (v.second.containerType() == "map" || v.second.containerType() == "MSGPACK_OBJECT_EXT")
+            ss << " (Check...unexpected data type!)";
+        ss << "\n";
     }
 
 public:
@@ -577,11 +644,10 @@ public:
      * Request and return the next data from the server.
      *
      * Exceptions:
-     * std::runtime_error if unknown "content" is found
+     * std::runtime_error if unexpected message number or unknown "content" is found
      */
     std::map<std::string, kb_data> next() {
         std::map<std::string, kb_data> data_pkg;
-        using ObjectMap = std::map<std::string, Object>;
 
         sendRequest();
         MultipartMsg mpmsg = receiveMultipartMsg();
@@ -605,32 +671,39 @@ public:
 
             // the next message is the content (data)
             if (content == "msgpack") {
-                kbdt.metadata = header_unpacked.at("metadata").as<ObjectMap>();
-
                 if (!is_initialized)
                     is_initialized = true;
-                else
+                else {
                     data_pkg.insert(std::make_pair(source, std::move(kbdt)));
+                    kb_data empty_data;
+                    kbdt.swap(empty_data);
+                }
 
                 kbdt.appendMsg(std::move(*it));
                 std::advance(it, 1);
 
                 msgpack::object_handle oh_data;
                 msgpack::unpack(oh_data, static_cast<const char*>(it->data()), it->size());
-                kbdt.msgpack_data = oh_data.get().as<ObjectMap>();
+                kbdt.metadata = header_unpacked.at("metadata").as<ObjectMap>();
+
+                auto data_unpacked = oh_data.get().as<ObjectMap>();
+                for (auto& v : data_unpacked) kbdt.insert(v); // shallow copy
+
+                kbdt.appendHandle(std::move(oh_header));
                 kbdt.appendHandle(std::move(oh_data));
 
             } else if ((content == "array" || content == "ImageData")) {
                 kbdt.appendMsg(std::move(*it));
                 std::advance(it, 1);
 
-                auto shape = header_unpacked.at("shape").as<std::vector<unsigned int>>();
+                auto tmp = header_unpacked.at("shape").as<std::vector<unsigned int>>();
+                std::vector<std::size_t> shape(tmp.begin(), tmp.end());
                 auto dtype = header_unpacked.at("dtype").as<std::string>();
                 toCppTypeString(dtype);
 
                 kbdt.array.insert(std::make_pair(
                     header_unpacked.at("path").as<std::string>(),
-                    Array(it->data(), shape, dtype)));
+                    NDArray(it->data(), shape, dtype)));
             } else {
                 throw std::runtime_error("Unknown data content: " + content);
             }
@@ -642,6 +715,8 @@ public:
         }
 
         data_pkg.insert(std::make_pair(source, std::move(kbdt)));
+        kb_data empty_data;
+        kbdt.swap(empty_data);
 
         return data_pkg;
     }
@@ -670,17 +745,16 @@ public:
             ss << "source: " << data.first << "\n";
             ss << "Total bytes received: " << data.second.bytesReceived() << "\n\n";
 
-            ss << "path, type, container data type, container shape\n";
+            ss << "path, container, container shape, type\n";
 
-            ss << "\nMetadata\n" << std::string(8, '-') << "\n";
-            for (auto&v : data.second.metadata) prettyStream(v, ss);
-            ss << "\nData\n" << std::string(4, '-') << "\n";
-            for (auto& v : data.second.msgpack_data) prettyStream(v, ss);
+            ss << "\nmetadata\n" << std::string(8, '-') << "\n";
+            for (auto& v : data.second.metadata) prettyStream<MsgpackObject>(v, ss);
 
-            for (auto &v : data.second.array) {
-                ss << v.first << ": " << "Array" << ", " << v.second.dtype()
-                   << ", " << vectorToString(v.second.shape()) << "\n";
-            }
+            ss << "\ndata\n" << std::string(4, '-') << "\n";
+            for (auto& v : data.second) prettyStream<MsgpackObject>(v, ss);
+
+            ss << "\narray\n" << std::string(5, '-') << "\n";
+            for (auto& v : data.second.array) prettyStream<NDArray>(v, ss);
 
             ss << "\n";
         }
