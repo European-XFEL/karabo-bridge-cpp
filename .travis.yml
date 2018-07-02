@@ -1,0 +1,53 @@
+dist: trusty
+sudo: required
+language: cpp
+compiler: gcc
+
+matrix:
+  include:
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-4.8
+      env:
+        - MATRIX_EVAL="CC=gcc-4.8 && CXX=g++-4.8"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-5
+            - cmake
+      env:
+        - MATRIX_EVAL="CC=gcc-5 && CXX=g++-5"
+      before_install:
+        - eval ${MATRIX_EVAL}
+
+install:
+  # ZeroMQ
+  - wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.tar.gz
+  - tar -xvzf zeromq-4.2.5.tar.gz
+  - cd zeromq-4.2.5
+  - ./configure -prefix=${HOME}/share/zeromq
+  - make -j${nproc}
+  - make install
+  - cd ..
+  # cppzmq
+  - wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz
+  - tar -xvzf v4.2.2.tar.gz
+  - cp cppzmq-4.2.2/*.hpp external/cppzmq/
+  # msgpack
+  - wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz
+  - tar -xvzf cpp-2.1.5.tar.gz
+  - cp -r msgpack-c-cpp-2.1.5/include external/msgpack/
+  # karabo-bridge-cpp
+  - mkdir build && cd build
+  - cmake ..
+  - make -j${nproc}
+
+script:
+  - make test
