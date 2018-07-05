@@ -1,0 +1,70 @@
+dist: trusty
+sudo: required
+language: cpp
+compiler: gcc
+
+matrix:
+  include:
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-4.8
+            - python3.4
+      env:
+        - MATRIX_EVAL="CC=gcc-4.8 && CXX=g++-4.8 && PYTHON=3.4"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - deadsnakes
+          packages:
+            - g++-5
+            - python3.6
+      env:
+        - MATRIX_EVAL="CC=gcc-5 && CXX=g++-5 && PYTHON=3.6"
+
+before_install:
+  - eval ${MATRIX_EVAL}
+  - python${PYTHON} -V
+  - cmake --version
+  # pip
+  - curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+  - sudo python${PYTHON} get-pip.py
+
+install:
+  - pushd ..
+  # simulator
+  - git clone https://github.com/European-XFEL/karabo-bridge-py
+  - pushd karabo-bridge-py
+  - sudo python${PYTHON} -m pip install -e .
+  - popd
+  # ZeroMQ
+  - wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.tar.gz
+  - tar -xvzf zeromq-4.2.5.tar.gz
+  - pushd zeromq-4.2.5
+  - ./configure -prefix=${HOME}/share/zeromq
+  - make -j${nproc}
+  - make install
+  - popd
+  # cppzmq
+  - wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz
+  - tar -xvzf v4.2.2.tar.gz
+  - cp cppzmq-4.2.2/*.hpp karabo-bridge-cpp/external/cppzmq/
+  # msgpack
+  - wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz
+  - tar -xvzf cpp-2.1.5.tar.gz
+  - cp -r msgpack-c-cpp-2.1.5/include karabo-bridge-cpp/external/msgpack/
+  # karabo-bridge-cpp
+  - popd
+  - mkdir build && pushd build
+  - cmake ..
+  - make -j${nproc}
+
+script:
+  - make test
+  - karabo-bridge-server-sim 1234 -n 2&
+  - ./run1
