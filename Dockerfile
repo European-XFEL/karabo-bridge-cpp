@@ -1,7 +1,9 @@
 FROM centos:7.0.1406
 
+# avoid checksum error
 RUN yum install -y yum-plugin-ovl
 
+# gcc, g++ 4.8.5 and cmake 2.8.12
 RUN yum install -y gcc \
   && yum install -y gcc-c++ \
   && yum install -y cmake \
@@ -12,6 +14,7 @@ RUN yum install -y gcc \
   && yum install -y wget \
   && yum install -y tar
 
+# install libzmq
 RUN wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.tar.gz \
   && tar -xvzf zeromq-4.2.5.tar.gz \
   && pushd zeromq-4.2.5 \
@@ -20,6 +23,7 @@ RUN wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.
   && make install \
   && popd
 
+# karabo-bridge-cpp with header files from cppzmq and msgpack
 RUN git clone https://github.com/European-XFEL/karabo-bridge-cpp.git \
   && pushd karabo-bridge-cpp \
   && wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz \
