@@ -45,11 +45,13 @@ matrix:
         # cppzmq
         - wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz
         - tar -xvzf v4.2.2.tar.gz
-        - cp cppzmq-4.2.2/*.hpp external/cppzmq/
+        - mkdir -p ${HOME}/share/cppzmq/include
+        - cp cppzmq-4.2.2/*.hpp ${HOME}/share/cppzmq/include/
         # msgpack
         - wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz
         - tar -xvzf cpp-2.1.5.tar.gz
-        - cp -r msgpack-c-cpp-2.1.5/include external/msgpack/
+        - mkdir -p ${HOME}/share/msgpack
+        - cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/
         # karabo-bridge-cpp
         - mkdir build && cd build
         - cmake ..

@@ -6,15 +6,16 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -g")
 
 find_package(PkgConfig REQUIRED)
 
+set(EXTERNAL_INSTALLATION "$ENV{HOME}/share")
 # This is where your zeromq is installed (in the maxwell cluster)
-set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/share/zeromq")
+set(CMAKE_INSTALL_PREFIX "${EXTERNAL_INSTALLATION}/zeromq")
 set(ENV{PKG_CONFIG_PATH} "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig/:$ENV{PKG_CONFIG_PATH}")
 
 pkg_check_modules(zmq REQUIRED libzmq>=4.2)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/msgpack/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/cppzmq)
+include_directories(${EXTERNAL_INSTALLATION}/msgpack/include)
+include_directories(${EXTERNAL_INSTALLATION}/cppzmq/include)
 include_directories(${zmq_INCLUDE_DIRS})
 
 find_library(zmq_LIBRARY
