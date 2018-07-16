@@ -18,12 +18,12 @@
 
 
 int main (int argc, char* argv[]) {
-    std::string port = "1234";
-    if (argc >= 2) port = argv[1];
+    std::string addr = "localhost:1234";
+    if (argc >= 2) addr = argv[1];
 
     karabo_bridge::Client client;
 
-    client.connect("tcp://localhost:" + port);
+    client.connect("tcp://" + addr);
 
     std::cout << client.showMsg() << "\n";
     std::cout << client.showNext() << "\n";
