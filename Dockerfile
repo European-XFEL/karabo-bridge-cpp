@@ -12,30 +12,38 @@ RUN yum install -y gcc \
   && yum install -y curl \
   && yum install -y git \
   && yum install -y wget \
-  && yum install -y tar
+  && yum install -y tar \
+  && yum clean all
 
 # install libzmq
 RUN wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.tar.gz \
-  && tar -xvzf zeromq-4.2.5.tar.gz \
+  && tar -xzf zeromq-4.2.5.tar.gz && rm zeromq-4.2.5.tar.gz \
   && pushd zeromq-4.2.5 \
   && ./configure -prefix=${HOME}/share/zeromq \
   && make -j${nproc} \
   && make install \
-  && popd
+  && popd \
+  && rm -r zeromq-4.2.5
 
-# karabo-bridge-cpp with header files from cppzmq and msgpack
-RUN git clone https://github.com/European-XFEL/karabo-bridge-cpp.git \
-  && pushd karabo-bridge-cpp \
-  && wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz \
-  && tar -xvzf v4.2.2.tar.gz \
-  && cp cppzmq-4.2.2/*.hpp external/cppzmq/ \
-  && wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz \
-  && tar -xvzf cpp-2.1.5.tar.gz \
-  && cp -r msgpack-c-cpp-2.1.5/include external/msgpack/ \
+COPY . ./karabo-bridge-cpp
+
+# add header files from cppzmq
+RUN wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz \
+  && tar -xzf v4.2.2.tar.gz && rm v4.2.2.tar.gz \
+  && cp cppzmq-4.2.2/*.hpp karabo-bridge-cpp/external/cppzmq/ && rm -r cppzmq-4.2.2
+
+# add header files from msgpack
+RUN wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz \
+  && tar -xzf cpp-2.1.5.tar.gz \
+  && rm cpp-2.1.5.tar.gz \
+  && cp -r msgpack-c-cpp-2.1.5/include karabo-bridge-cpp/external/msgpack/ \
+  && rm -r msgpack-c-cpp-2.1.5
+
+# build karabo-bridge-cpp
+RUN pushd karabo-bridge-cpp \
+  && if [ -d "build" ]; then rm -r build; fi \
   && mkdir build && pushd build \
   && cmake .. \
   && make -j${nproc}
-
-EXPOSE 1234 
 
 CMD ["/bin/bash"]
