@@ -1,5 +1,7 @@
 # karabo-bridge-cpp
 
+[![Build Status](https://travis-ci.org/European-XFEL/karabo-bridge-cpp.svg?branch=master)](https://travis-ci.org/European-XFEL/karabo-bridge-cpp)
+
 *karabo-bridge-cpp* is a C++ client to receive pipeline data from the Karabo control system used at [European XFEL](https://www.xfel.eu/).
 
 ## Requirements
