@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  client:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: karabo-bridge-client
+    links:
+      - server
+    command: /karabo-bridge-cpp/build/run1 server:1234
+  server:
+    build:
+      context: .
+      dockerfile: server.Dockerfile
+    image: karabo-bridge-server
+    expose:
+      - "1234"

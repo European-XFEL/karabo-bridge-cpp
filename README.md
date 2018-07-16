@@ -6,66 +6,86 @@
 
 ## Requirements
 
- - [ZeroMQ](http://zeromq.org/) >= [4.2.5](https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.zip)
- - [cppzmq](https://github.com/zeromq/cppzmq) >= [4.2.2](https://github.com/zeromq/cppzmq/archive/v4.2.2.zip)
- - [msgpack](https://msgpack.org/index.html) >= [2.1.5](https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.zip)
+ - [ZeroMQ](http://zeromq.org/) >= 4.2.5
+ - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.2
+ - [msgpack](https://msgpack.org/index.html) >= 2.1.5
 
 ## Set up the environment
 
-#### Karabo-bridge-cpp
+#### Compiler
+The Maxwell cluster uses *g++ 4.8.5*.
 
-```sh
-git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
-```
+#### CMake
+The Maxwell cluster uses *CMake 2.8.12.2*.
 
 #### ZeroMQ
 
 If you have "sudoer", e.g. in your own PC, then
 ```sh
-sudo sh -c "echo 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/release-stable/xUbuntu_16.04/ /' > /etc/apt/sources.list.d/network:messaging:zeromq:release-stable.list"
-sudo apt-get update
-sudo apt-get install libzmq3-dev
+$ sudo sh -c "echo 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/release-stable/xUbuntu_16.04/ /' > /etc/apt/sources.list.d/network:messaging:zeromq:release-stable.list"
+$ sudo apt-get update
+$ sudo apt-get install libzmq3-dev
 ```
 
 If you are on a cluster, then
 
 ```sh
-./configure -prefix=$HOME/share/zeromq
-make
-make install
+$ ./configure -prefix=${HOME}/share/zeromq
+$ make
+$ make install
 ```
 
 #### cppzmq
-Copy the header files (`zmq.hpp`, `zmq_addon.hpp`) to `karabo-bridge-cpp/external/cppzmq/`.
+
+```sh
+$ wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz
+$ tar -xzf v4.2.2.tar.gz
+$ mkdir -p ${HOME}/share/cppzmq/include
+$ cp cppzmq-4.2.2/*.hpp ${HOME}/share/cppzmq/include
+```
 
 #### msgpack
-Copy the `include` folder to `karabo-bridge-cpp/external/msgpack/`.
 
-#### Compiler
-Make sure you have `g++ 4.8.5` installed in your own PC to be in line with the compiler in the Maxwell cluster.
+```sh
+$ wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz
+$ tar -xzf cpp-2.1.5.tar.gz
+$ mkdir -p ${HOME}/share/msgpack
+$ cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/
+```
+
+## Docker
+
+We provide a Docker container with the above environment being set up.
+
+```sh
+$ sudo docker run -it zhujun98/maxwell bash
+```
 
 ## Build and test
 
 ```sh
-./autogen.sh
+$ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
+$ cd karabo-bridge-cpp
+$ ./autogen.sh
 ```
 
 ## Run the examples
 
-- For [example1](./src/client_for_pysim.cpp), you will need to have a Python simulated server ([karabo-bridge-py]()) running in the background (e.g. a Screen session):
+- For [example1](./src/client_for_pysim.cpp), you will need to have a Python simulated server ([karabo-bridge-py]()) running in the background:
 
-```py
-from karabo_bridge import start_gen
-start_gen(1234, nsources=2)
+```sh
+$ karabo-bridge-server-sim 1234 -n 2
 ```
 
 then
 
 ```sh
-build/run1
+$ build/run1
 ```
 
 ## How to use
+
+Include the header file `karabo-bridge-cpp/include/kb_client.hpp` in your code and build.
 
 ```c++
 import "kb_client.hpp"
@@ -189,10 +209,10 @@ assert(kb_data.array["image.data"].size() == 16*128*512*64);
 
 To show the data structure:
 ```sh
-build/glimpse tcp://localhost:1234
+$ build/glimpse tcp://localhost:1234
 ```
 To show the message structure:
 ```sh
-build/glimpse tcp://localhost:1234 m
+$ build/glimpse tcp://localhost:1234 m
 ```
 
