@@ -48,6 +48,7 @@ RUN pushd karabo-bridge-cpp \
   && if [ -d "build" ]; then rm -r build; fi \
   && mkdir build && pushd build \
   && cmake .. \
-  && make -j${nproc}
+  && make -j${nproc} \
+  && make test
 
 CMD ["/bin/bash"]

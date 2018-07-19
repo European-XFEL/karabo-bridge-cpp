@@ -18,7 +18,7 @@ matrix:
         - sudo docker build -t karabo-bridge-client .
         - sudo docker network create mynet
       script:
-        - make build/test
+        - sudo docker run --rm karabo-bridge-client make -C /karabo-bridge-cpp/build test 
         - sudo docker run --rm --name server --net mynet karabo-bridge-server&
         - sudo docker run --rm -it --net mynet karabo-bridge-client /karabo-bridge-cpp/build/run1 server:1234
     - os: linux
@@ -65,7 +65,9 @@ matrix:
         - mkdir -p ${HOME}/share/msgpack
         - cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/
         # karabo-bridge-cpp
+        - popd
         - mkdir build && cd build
+        - ls
         - cmake ..
         - make -j${nproc}
       

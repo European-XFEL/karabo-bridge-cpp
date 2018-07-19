@@ -69,7 +69,7 @@ int main (int argc, char* argv[]) {
             assert(data.array["cellId"].dtype() == "uint16_t");
             assert(data.array["cellId"].shape() == std::vector<std::size_t>{64});
             auto cell_id = data.array["cellId"].as<std::array<uint16_t, 64>>();
-            for (auto i_id=0; i_id < cell_id.size(); ++i_id) assert(i_id == cell_id[i_id]);
+            for (std::size_t i_id=0; i_id < cell_id.size(); ++i_id) assert(i_id == cell_id[i_id]);
             assert(cell_id.size() == 64);
 
             assert(data.array["image.data"].dtype() == "float");
