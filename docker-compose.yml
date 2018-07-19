@@ -3,15 +3,15 @@ version: '3'
 services:
   client:
     build:
-      context: ..
+      context: .
       dockerfile: Dockerfile
     image: karabo-bridge-client
     links:
       - server
-    command: /karabo-bridge-cpp/build/run1 server:1234
+    command: bash -c "make -C /karabo-bridge-cpp/build test && /karabo-bridge-cpp/build/run1 server:1234"
   server:
     build:
-      context: .
+      context: ./tests
       dockerfile: server.Dockerfile
     image: karabo-bridge-server
     expose:
