@@ -53,15 +53,7 @@ $ mkdir -p ${HOME}/share/msgpack
 $ cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/
 ```
 
-## Docker
-
-We provide a Docker container with the above environment being set up.
-
-```sh
-$ sudo docker run -it zhujun98/maxwell bash
-```
-
-## Build and test
+## Build and run unit test
 
 ```sh
 $ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
@@ -214,5 +206,21 @@ $ build/glimpse tcp://localhost:1234
 To show the message structure:
 ```sh
 $ build/glimpse tcp://localhost:1234 m
+```
+
+## Docker
+
+We provide a Docker container with the above environment being set up.
+
+```sh
+$ sudo docker run -it zhujun98/maxwell bash
+```
+
+Set up and tear down the test with Docker Compose:
+```sh
+# set up
+$ sudo docker-compose up
+# tear down
+$ sudo docker-compose down
 ```
 
