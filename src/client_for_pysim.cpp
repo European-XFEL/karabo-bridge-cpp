@@ -18,12 +18,12 @@
 
 
 int main (int argc, char* argv[]) {
-    std::string port = "1234";
-    if (argc >= 2) port = argv[1];
+    std::string addr = "localhost:1234";
+    if (argc >= 2) addr = argv[1];
 
     karabo_bridge::Client client;
 
-    client.connect("tcp://localhost:" + port);
+    client.connect("tcp://" + addr);
 
     std::cout << client.showMsg() << "\n";
     std::cout << client.showNext() << "\n";
@@ -54,24 +54,23 @@ int main (int argc, char* argv[]) {
             assert(data.metadata["timestamp.tid"].as<uint64_t>() >= 10000000000);
             data.metadata["timestamp.frac"].as<std::string>();
 
-            assert(data["header.pulseCount"].as<uint64_t>() == 64);
-            assert(data["trailer.status"].as<uint64_t>() == 0);
-            assert(data["header.majorTrainFormatVersion"].as<uint64_t>() == 2);
-            assert(data["header.minorTrainFormatVersion"].as<uint64_t>() == 1);
+            assert(data["pulseCount"].as<uint64_t>() == 64);
+            assert(data["status"].as<uint64_t>() == 0);
+            assert(data["majorTrainFormatVersion"].as<uint64_t>() == 2);
+            assert(data["minorTrainFormatVersion"].as<uint64_t>() == 1);
 
-            auto image_passport = data["image.passport"].as<std::vector<std::string>>();
+            auto image_passport = data["passport"].as<std::vector<std::string>>();
 
-            assert(data["detector.data"].containerType() == "array-like");
-            assert(data["detector.data"].dtype() == "char");
-            auto detector_data = data["detector.data"].as<std::vector<uint8_t>>();
+            assert(data["data"].containerType() == "array-like");
+            assert(data["data"].dtype() == "char");
+            auto detector_data = data["data"].as<std::vector<uint8_t>>();
             assert(detector_data.size() == 416);
             for (auto v : detector_data) assert(v == 1);
-
-            assert(data.array["image.trainId"].dtype() == "uint64_t");
-            assert(data.array["image.trainId"].shape() == std::vector<std::size_t>{64});
-            auto train_id = data.array["image.trainId"].as<std::array<uint64_t, 64>>();
-            for (auto v : train_id) assert(v >= 10000000000);
-            assert(train_id.size() == 64);
+            assert(data.array["cellId"].dtype() == "uint16_t");
+            assert(data.array["cellId"].shape() == std::vector<std::size_t>{64});
+            auto cell_id = data.array["cellId"].as<std::array<uint16_t, 64>>();
+            for (std::size_t i_id=0; i_id < cell_id.size(); ++i_id) assert(i_id == cell_id[i_id]);
+            assert(cell_id.size() == 64);
 
             assert(data.array["image.data"].dtype() == "float");
             assert(data.array["image.data"].shape()[0] == 16);
