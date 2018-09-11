@@ -53,7 +53,7 @@ $ mkdir -p ${HOME}/share/msgpack
 $ cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/
 ```
 
-## Build and run unit test
+## Build, install and unit test
 
 ```sh
 $ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
@@ -61,23 +61,23 @@ $ cd karabo-bridge-cpp
 $ ./autogen.sh
 ```
 
-## Run the examples
+By default, the static library `libkbcpp.a` is installed in `~/share/karabo-bridge-cpp/`.
 
-- For [example1](./src/client_for_pysim.cpp), you will need to have a Python simulated server ([karabo-bridge-py]()) running in the background:
+## Integration test
+
+- For [integration test](./integration_test), you will need to have a Python simulated server ([karabo-bridge-py]()) running in the background:
 
 ```sh
 $ karabo-bridge-server-sim 1234 -n 2
 ```
 
-then
+then run the client
 
 ```sh
-$ build/run1
+$ build/integration_test/pysim
 ```
 
 ## How to use
-
-Include the header file `karabo-bridge-cpp/include/kb_client.hpp` in your code and build.
 
 ```c++
 import "kb_client.hpp"
@@ -218,4 +218,3 @@ $ sudo docker-compose up
 # tear down
 $ sudo docker-compose down
 ```
-ls

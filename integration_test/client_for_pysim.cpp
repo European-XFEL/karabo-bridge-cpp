@@ -2,10 +2,9 @@
  * A test use the simulation server from
  *      https://github.com/European-XFEL/karabo-bridge-py.git
  *
- * To run the server, use
+ * To start a server, run the following command in the terminal
  *
- *      from karabo_bridge import start_gen
- *      start_gen(1234, nsources=2)
+ *      karabo-bridge-server-sim 1234 -n 2
  *
  * Author: Jun Zhu, zhujun981661@gmail.com
  *

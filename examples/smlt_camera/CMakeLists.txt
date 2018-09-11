@@ -1,0 +1,2 @@
+add_executable(smlt_camera client_for_smlt_camera.cpp)
+target_link_libraries(smlt_camera kbcpp)
