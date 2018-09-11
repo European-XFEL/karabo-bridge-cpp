@@ -1,7 +1,7 @@
 //
 // Author: Jun Zhu, zhujun981661@gmail.com
 //
-#include "kb_client.hpp"
+#include "../kb_client.hpp"
 
 
 int main() {
