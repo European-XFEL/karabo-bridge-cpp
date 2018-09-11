@@ -19,7 +19,7 @@ matrix:
         - sudo docker network create mynet
       script:
         - sudo docker run --rm karabo-bridge-client make -C /karabo-bridge-cpp/build test 
-        - sudo docker run --rm --name server --net mynet karabo-bridge-server&
+        - sudo docker run --rm --name server --net mynet karabo-bridge-server /bin/bash -c "karabo-bridge-server-sim 1234 -n 2"&
         - sudo docker run --rm -it --net mynet karabo-bridge-client /karabo-bridge-cpp/build/run1 server:1234
     - os: linux
       addons:
