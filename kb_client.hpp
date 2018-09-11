@@ -249,9 +249,7 @@ public:
 
     // shape and dtype should be moved into the constructor
     NDArray(void* ptr, const std::vector<std::size_t>& shape, const std::string& dtype):
-        ptr_(ptr),
-        shape_(shape)
-    {
+            ptr_(ptr), shape_(shape) {
         std::size_t size = 1;
         // Overflow is not expected since otherwise zmq::message_t
         // cannot hold the data.
@@ -575,8 +573,8 @@ std::string vectorToString(const std::vector<T>& vec) {
  * Convert the python type to the corresponding C++ type
  */
 void toCppTypeString(std::string& dtype) {
-    if (dtype.find("int")
-        != std::string::npos) dtype.append("_t");
+    if (dtype.find("int") != std::string::npos)
+        dtype.append("_t");
     else if (dtype == "float32")
         dtype = "float";
     else if (dtype == "float64")
