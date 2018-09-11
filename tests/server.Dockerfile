@@ -4,4 +4,4 @@ RUN git clone https://github.com/European-XFEL/karabo-bridge-py.git \
   && pushd karabo-bridge-py \
   && pip install .
 
-CMD ["karabo-bridge-server-sim", "1234", "-n", "2"]
+CMD ["/bin/bash"]

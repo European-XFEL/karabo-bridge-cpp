@@ -210,17 +210,12 @@ $ build/glimpse tcp://localhost:1234 m
 
 ## Docker
 
-We provide a Docker container with the above environment being set up.
+Integration test with Docker:
 
-```sh
-$ sudo docker run -it zhujun98/maxwell bash
-```
-
-Set up and tear down the test with Docker Compose:
 ```sh
 # set up
 $ sudo docker-compose up
 # tear down
 $ sudo docker-compose down
 ```
-
+ls
