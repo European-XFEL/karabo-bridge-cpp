@@ -61,7 +61,14 @@ $ cd karabo-bridge-cpp
 $ ./autogen.sh
 ```
 
-By default, the static library `libkbcpp.a` is installed in `~/share/karabo-bridge-cpp/`.
+The default installation location is `~/share/karabo_bridge_cpp/`:
+```sh
+- lib/libkbcpp.a
+- include/kb_client.hpp
+- bin/kbcpp_glimpse
+```
+
+It is required to link both `libkbcpp.a` and `libzmq.so` when compiling with your code.
 
 ## Integration test
 
