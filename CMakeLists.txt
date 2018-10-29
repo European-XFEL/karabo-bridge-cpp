@@ -50,7 +50,6 @@ add_test(TEST_NDARRAY test4)
 add_test(TEST_KBDATA test5)
 
 add_subdirectory(integration_test)
-add_subdirectory(examples/smlt_camera)
 add_subdirectory(tools)
 
 install(TARGETS kbcpp DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)

@@ -1,11 +1,11 @@
 /*
- * A test use a LimaSimulatedCamera and PipeToZeroMQ devices in local Karabo
- * environment.
+ * The client connects to a LimaSimulatedCamera and a PipeToZeroMQ devices
+ * in the local Karabo environment.
  *
  * Author: Jun Zhu, zhujun981661@gmail.com
  *
  */
-#include "../../kb_client.hpp"
+#include "kb_client.hpp"
 
 #include <iostream>
 #include <thread>
