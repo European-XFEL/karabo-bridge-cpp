@@ -1,5 +1,5 @@
 /*
- * A test use the simulation server from
+ * The client connects to the simulation server implemented in
  *      https://github.com/European-XFEL/karabo-bridge-py.git
  *
  * To start a server, run the following command in the terminal
