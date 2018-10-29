@@ -53,20 +53,28 @@ $ mkdir -p ${HOME}/share/msgpack
 $ cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/
 ```
 
-## Build, install and unit test
+## Build and install
 
+Run
 ```sh
 $ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
 $ cd karabo-bridge-cpp
-$ ./autogen.sh
+$ ./autogen.sh /YOUR/TARGET/FOLDER
 ```
 
-The default installation location is `~/share/karabo_bridge_cpp/`:
+The installation directory structure is:
 ```sh
-- lib/libkbcpp.a
-- include/kb_client.hpp
-- bin/kbcpp-glimpse
+/YOUR/TARGET/FOLDER
+|-- lib
+    |-- libkbcpp.a
+|-- include
+    |-- kb_client.hpp
+|-- bin
+    |-- kbcpp-glimpse
 ```
+
+The default target folder is `$HOME/share/karabo_bridge_cpp/`.
+
 
 It is required to link both `libkbcpp.a` and `libzmq.so` when compiling with your code.
 

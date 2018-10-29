@@ -1,8 +1,14 @@
+#!/bin/bash
+
+INSTALL_PATH=${HOME}/share/karabo_bridge_cpp/
+if [ $# -ge 1 ]; then
+    INSTALL_PATH=$1
+fi
+
 rm -r build 2> /dev/null
 mkdir build
 cd build
 
-INSTALL_PATH=${HOME}/share/karabo_bridge_cpp/
 if ! [ -x "$(command -v g++-4.8)" ]; then
     echo "g++4.8 does not exist! Compile with default g++!"
     cmake -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PATH} ..
