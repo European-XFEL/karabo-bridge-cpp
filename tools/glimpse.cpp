@@ -1,10 +1,17 @@
 /*
- * A tool to view the data /message structure coming from the server
+ * A tool to view the data/message structure received by the bridge.
  *
- * To run, for example, type
+ * Example:
  *
- * show data structure: glimpse tcp://localhost:1234
- * show message structure: glimpse tcp://localhost:1234 m (or M)
+ * Show data structure:
+ * ```
+ * $ kbcpp-glimpse tcp://localhost:1234
+ * ```
+ *
+ * Show message structure:
+ * ```
+ * $ kbcpp-glimpse tcp://localhost:1234 m (or M)
+ * ```
  *
  * Author: Jun Zhu, zhujun981661@gmail.com
  *

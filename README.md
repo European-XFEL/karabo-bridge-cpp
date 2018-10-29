@@ -65,26 +65,37 @@ The default installation location is `~/share/karabo_bridge_cpp/`:
 ```sh
 - lib/libkbcpp.a
 - include/kb_client.hpp
-- bin/kbcpp_glimpse
+- bin/kbcpp-glimpse
 ```
 
 It is required to link both `libkbcpp.a` and `libzmq.so` when compiling with your code.
 
 ## Integration test
 
-- For [integration test](./integration_test), you will need to have a Python simulated server ([karabo-bridge-py]()) running in the background:
+- Integration test in two steps
+
+First, start the simulated server implemented in [karabo-bridge-py](https://github.com/European-XFEL/karabo-bridge-py):
 
 ```sh
 $ karabo-bridge-server-sim 1234 -n 2
 ```
 
-then run the client
+Then run the client
 
 ```sh
 $ build/integration_test/pysim
 ```
 
-## How to use
+- Integration test using Docker:
+
+```sh
+# set up
+$ sudo docker-compose up
+# tear down
+$ sudo docker-compose down
+```
+
+## Usage
 
 ```c++
 import "kb_client.hpp"
@@ -202,26 +213,15 @@ assert(kb_data.array["image.data"].shape()[3] == 64);
 assert(kb_data.array["image.data"].size() == 16*128*512*64);
 ```
 
-## Tools
+## Command line tools
 
 #### glimpse
 
 To show the data structure:
 ```sh
-$ build/glimpse tcp://localhost:1234
+$ kbcpp-glimpse tcp://localhost:1234
 ```
 To show the message structure:
 ```sh
-$ build/glimpse tcp://localhost:1234 m
-```
-
-## Docker
-
-Integration test with Docker:
-
-```sh
-# set up
-$ sudo docker-compose up
-# tear down
-$ sudo docker-compose down
+$ kbcpp-glimpse tcp://localhost:1234 m
 ```
