@@ -34,20 +34,21 @@ target_link_libraries(kbcpp ${zmq_LIBRARY})
 set_target_properties(kbcpp PROPERTIES LINKER_LANGUAGE CXX)
 
 enable_testing()
-add_executable(test1 tests/test_version)
-add_executable(test2 tests/test_multipart_msg.cpp)
-add_executable(test3 tests/test_msgpackobject.cpp)
-add_executable(test4 tests/test_ndarray.cpp)
-add_executable(test5 tests/test_kbdata.cpp)
-foreach(target test1 test2 test3 test4 test5)
-    target_link_libraries(${target} kbcpp)
-endforeach()
+set(TESTS
+    tests/test_version.cpp
+    tests/test_multipart_msg.cpp
+    tests/test_msgpackobject.cpp
+    tests/test_ndarray.cpp
+    tests/test_kbdata.cpp)
+foreach(filename IN LISTS TESTS)
+    string(REPLACE ".cpp" "" targetname ${filename})
+    string(REPLACE "tests/" "" targetname ${targetname})
+    add_executable(${targetname} ${filename})
+    target_link_libraries(${targetname} kbcpp)
 
-add_test(TEST_VERSION test1)
-add_test(TEST_MULTIPART_MSG test2)
-add_test(TEST_MSGPACK_OBJECT test3)
-add_test(TEST_NDARRAY test4)
-add_test(TEST_KBDATA test5)
+    string(TOUPPER ${targetname} testname)
+    add_test(${testname} ${targetname})
+endforeach()
 
 add_subdirectory(integration_test)
 add_subdirectory(tools)
