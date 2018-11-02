@@ -1,6 +1,12 @@
 /*
- * The client connects to a LimaSimulatedCamera and a PipeToZeroMQ devices
- * in the local Karabo environment.
+ * The client connects to PipeToZeroMQ devices in the local Karabo environment.
+ *
+ * - Create a project;
+ * - Add a python device server;
+ * - Add a LimaSimulatedCamera device and name it "camera";
+ * - Add a PipeToZeroMQ device and name it "bridge";
+ * - Set "input/Connected Output Channels" to "camera:output";
+ * - Instantiate the above two devices.
  *
  * Author: Jun Zhu, zhujun981661@gmail.com
  *
@@ -58,8 +64,9 @@ int main (int argc, char* argv[]) {
         assert(image_data.size() == 1024*1024);
         // The number increases with time, so one should restart the camera
         // after several runs.
-        for (auto v : image_data) assert(v >= 0 && v <= 300000);
+        unsigned long long sum = 0;
+        for (auto v : image_data) sum += v;
+        // The result starts from 1 and increase over time.
+        assert(float(sum/image_data.size()) >= 1.0f) ;
     }
-
-    std::cout << "Passed!" << std::endl;
 }
