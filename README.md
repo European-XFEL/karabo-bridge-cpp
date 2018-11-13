@@ -10,56 +10,21 @@
  - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.2
  - [msgpack](https://msgpack.org/index.html) >= 2.1.5
 
-## Set up the environment
-
 #### Compiler
 The Maxwell cluster uses *g++ 4.8.5*.
 
 #### CMake
 The Maxwell cluster uses *CMake 2.8.12.2*.
 
-#### ZeroMQ
-
-If you have "sudoer", e.g. in your own PC, then
-```sh
-$ sudo sh -c "echo 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/release-stable/xUbuntu_16.04/ /' > /etc/apt/sources.list.d/network:messaging:zeromq:release-stable.list"
-$ sudo apt-get update
-$ sudo apt-get install libzmq3-dev
-```
-
-If you are on a cluster, then
-
-```sh
-$ ./configure -prefix=${HOME}/share/zeromq
-$ make
-$ make install
-```
-
-#### cppzmq
-
-```sh
-$ wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz
-$ tar -xzf v4.2.2.tar.gz
-$ mkdir -p ${HOME}/share/cppzmq/include
-$ cp cppzmq-4.2.2/*.hpp ${HOME}/share/cppzmq/include
-```
-
-#### msgpack
-
-```sh
-$ wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz
-$ tar -xzf cpp-2.1.5.tar.gz
-$ mkdir -p ${HOME}/share/msgpack
-$ cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/
-```
-
 ## Build and install
 
-Run
+- On the Maxwell cluster
+
+A bash script is provided to download the dependencies, build, test and install the library:
 ```sh
 $ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
 $ cd karabo-bridge-cpp
-$ ./autogen.sh /YOUR/TARGET/FOLDER
+$ ./autogen.sh install /YOUR/TARGET/FOLDER
 ```
 
 The installation directory structure is:
@@ -75,8 +40,32 @@ The installation directory structure is:
 
 The default target folder is `$HOME/share/karabo_bridge_cpp/`.
 
+- On the online cluster
 
-It is required to link both `libkbcpp.a` and `libzmq.so` when compiling with your code.
+Since there is no internet access on the online cluster, you need first to download the dependencies on a PC with internet access:
+
+```sh
+$ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
+$ cd karabo-bridge-cpp
+$ ./autogen.sh download
+```
+
+Then copy the `karabo-bridge-cpp` folder to the online cluster:
+
+```sh
+$ cd ..
+$ scp -r karabo-bridge-cpp USERNAME@exflgateway:
+$ ssh USERNAME@exflgateway
+$ scp -r karabo-bridge-cpp USERNAME@ONLINE_CLUSTER_NAME:
+$ ssh USERNAME@ONLINE_CLUSTER_NAME
+```
+
+Finally, build and install the library:
+
+```sh
+$ cd karabo-bridge-cpp
+$ ./autogen.sh install
+```
 
 ## Integration test
 

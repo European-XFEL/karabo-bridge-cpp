@@ -4,34 +4,21 @@ project(karabo-bridge-cpp)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -g")
 
-find_package(PkgConfig REQUIRED)
-
+# This is where all external dependencies are installed (in the Maxwell/online cluster)
 set(EXTERNAL_INSTALLATION "$ENV{HOME}/share")
-# This is where your zeromq is installed (in the maxwell cluster)
-set(ZEROMQ_INSTALL_PREFIX "${EXTERNAL_INSTALLATION}/zeromq")
-set(ENV{PKG_CONFIG_PATH} "${ZEROMQ_INSTALL_PREFIX}/lib/pkgconfig/:$ENV{PKG_CONFIG_PATH}")
 
-pkg_check_modules(zmq REQUIRED libzmq>=4.2)
-
+include_directories(${EXTERNAL_INSTALLATION}/zeromq/include)
 include_directories(${EXTERNAL_INSTALLATION}/msgpack/include)
 include_directories(${EXTERNAL_INSTALLATION}/cppzmq/include)
-include_directories(${zmq_INCLUDE_DIRS})
 
-#set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-find_library(zmq_LIBRARY
-             NAMES zmq
-             PATHS ${zmq_LIBRARY_DIRS})
+set(zmq_LIBRARY "${EXTERNAL_INSTALLATION}/zeromq/lib/libzmq.so")
 
-if (${zmq_LIBRARY_DIRS} STREQUAL "/usr/local/lib")
-else()
-    # One must specify the library file, otherwise CMAKE may specify the
-    # default (system) library which has a different version.
-    set(zmq_LIBRARY "${zmq_LIBRARY_DIRS}/libzmq.so")
-endif()
-
-add_library(kbcpp STATIC kb_client.hpp)
+add_library(kbcppStatic STATIC kb_client.hpp)
+add_library(kbcpp SHARED kb_client.hpp)
+target_link_libraries(kbcppStatic ${zmq_LIBRARY})
 target_link_libraries(kbcpp ${zmq_LIBRARY})
-set_target_properties(kbcpp PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(kbcppStatic PROPERTIES LINKER_LANGUAGE CXX OUTPUT_NAME kbcpp)
+set_target_properties(kbcpp PROPERTIES LINKER_LANGUAGE CXX OUTPUT_NAME kbcpp)
 
 enable_testing()
 set(TESTS
@@ -53,5 +40,6 @@ endforeach()
 add_subdirectory(integration_test)
 add_subdirectory(tools)
 
-install(TARGETS kbcpp DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-install(FILES kb_client.hpp DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+set(KBCPP_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/karabo_bridge_cpp)
+install(TARGETS kbcpp kbcppStatic DESTINATION ${KBCPP_INSTALL_PATH}/lib)
+install(FILES kb_client.hpp DESTINATION ${KBCPP_INSTALL_PATH}/include)
