@@ -334,125 +334,6 @@ struct as<karabo_bridge::MsgpackObject> {
 namespace karabo_bridge {
 
 /*
- * Visitor used to unfold the hierarchy of an unknown data structure,
- */
-struct karabo_visitor {
-    std::string& m_s;
-    bool m_ref;
-
-    explicit karabo_visitor(std::string& s):m_s(s), m_ref(false) {}
-    ~karabo_visitor() { m_s += "\n"; }
-
-    bool visit_nil() {
-        m_s += "null";
-        return true;
-    }
-    bool visit_boolean(bool v) {
-        if (v) m_s += "true";
-        else m_s += "false";
-        return true;
-    }
-    bool visit_positive_integer(uint64_t v) {
-        std::stringstream ss;
-        ss << v;
-        m_s += ss.str();
-        return true;
-    }
-    bool visit_negative_integer(int64_t v) {
-        std::stringstream ss;
-        ss << v;
-        m_s += ss.str();
-        return true;
-    }
-    bool visit_float32(float v) {
-        std::stringstream ss;
-        ss << v;
-        m_s += ss.str();
-        return true;
-    }
-    bool visit_float64(double v) {
-        std::stringstream ss;
-        ss << v;
-        m_s += ss.str();
-        return true;
-    }
-    bool visit_str(const char* v, uint32_t size) {
-        m_s += '"' + std::string(v, size) + '"';
-        return true;
-    }
-    bool visit_bin(const char* v, uint32_t size) {
-        if (is_key_)
-            m_s += std::string(v, size);
-        else m_s += "(bin)";
-        return true;
-    }
-    bool visit_ext(const char* /*v*/, uint32_t /*size*/) {
-        return true;
-    }
-    bool start_array_item() {
-        return true;
-    }
-    bool start_array(uint32_t /*size*/) {
-        m_s += "[";
-        return true;
-    }
-    bool end_array_item() {
-        m_s += ",";
-        return true;
-    }
-    bool end_array() {
-        m_s.erase(m_s.size() - 1, 1); // remove the last ','
-        m_s += "]";
-        return true;
-    }
-    bool start_map(uint32_t /*num_kv_pairs*/) {
-        tracker_.push(level_++);
-        return true;
-    }
-    bool start_map_key() {
-        is_key_ = true;
-        m_s += "\n";
-
-        for (int i=0; i< tracker_.top(); ++i) m_s += "    ";
-        return true;
-    }
-    bool end_map_key() {
-        m_s += ": ";
-        is_key_ = false;
-        return true;
-    }
-    bool start_map_value() {
-        return true;
-    }
-    bool end_map_value() {
-        m_s += ",";
-        return true;
-    }
-    bool end_map() {
-        m_s.erase(m_s.size() - 1, 1); // remove the last ','
-        tracker_.pop();
-        --level_;
-        return true;
-    }
-    void parse_error(size_t /*parsed_offset*/, size_t /*error_offset*/) {
-        std::cerr << "parse error"<<std::endl;
-    }
-    void insufficient_bytes(size_t /*parsed_offset*/, size_t /*error_offset*/) {
-        std::cout << "insufficient bytes"<<std::endl;
-    }
-
-    // These two functions are required by parser.
-    void set_referenced(bool ref) { m_ref = ref; }
-    bool referenced() const { return m_ref; }
-
-private:
-    std::stack<int> tracker_;
-    uint16_t level_ = 0;
-    bool is_key_ = false;
-};
-
-
-/*
  * Data structure presented to the user.
  *
  * - The data member "metadata" holds a map of meta data;
@@ -529,12 +410,130 @@ private:
  * Parse a single message packed by msgpack using "visitor".
  */
 std::string parseMsg(const zmq::message_t& msg) {
+    /*
+     * Visitor used to unfold the hierarchy of an unknown data structure,
+     */
+    struct visitor {
+        std::string& m_s;
+        bool m_ref;
+
+        explicit visitor(std::string& s):m_s(s), m_ref(false) {}
+        ~visitor() { m_s += "\n"; }
+
+        bool visit_nil() {
+          m_s += "null";
+          return true;
+        }
+        bool visit_boolean(bool v) {
+          if (v) m_s += "true";
+          else m_s += "false";
+          return true;
+        }
+        bool visit_positive_integer(uint64_t v) {
+          std::stringstream ss;
+          ss << v;
+          m_s += ss.str();
+          return true;
+        }
+        bool visit_negative_integer(int64_t v) {
+          std::stringstream ss;
+          ss << v;
+          m_s += ss.str();
+          return true;
+        }
+        bool visit_float32(float v) {
+          std::stringstream ss;
+          ss << v;
+          m_s += ss.str();
+          return true;
+        }
+        bool visit_float64(double v) {
+          std::stringstream ss;
+          ss << v;
+          m_s += ss.str();
+          return true;
+        }
+        bool visit_str(const char* v, uint32_t size) {
+          m_s += '"' + std::string(v, size) + '"';
+          return true;
+        }
+        bool visit_bin(const char* v, uint32_t size) {
+          if (is_key_)
+            m_s += std::string(v, size);
+          else m_s += "(bin)";
+          return true;
+        }
+        bool visit_ext(const char* /*v*/, uint32_t /*size*/) {
+          return true;
+        }
+        bool start_array_item() {
+          return true;
+        }
+        bool start_array(uint32_t /*size*/) {
+          m_s += "[";
+          return true;
+        }
+        bool end_array_item() {
+          m_s += ",";
+          return true;
+        }
+        bool end_array() {
+          m_s.erase(m_s.size() - 1, 1); // remove the last ','
+          m_s += "]";
+          return true;
+        }
+        bool start_map(uint32_t /*num_kv_pairs*/) {
+          tracker_.push(level_++);
+          return true;
+        }
+        bool start_map_key() {
+          is_key_ = true;
+          m_s += "\n";
+
+          for (int i=0; i< tracker_.top(); ++i) m_s += "    ";
+          return true;
+        }
+        bool end_map_key() {
+          m_s += ": ";
+          is_key_ = false;
+          return true;
+        }
+        bool start_map_value() {
+          return true;
+        }
+        bool end_map_value() {
+          m_s += ",";
+          return true;
+        }
+        bool end_map() {
+          m_s.erase(m_s.size() - 1, 1); // remove the last ','
+          tracker_.pop();
+          --level_;
+          return true;
+        }
+        void parse_error(size_t /*parsed_offset*/, size_t /*error_offset*/) {
+          std::cerr << "parse error"<<std::endl;
+        }
+        void insufficient_bytes(size_t /*parsed_offset*/, size_t /*error_offset*/) {
+          std::cout << "insufficient bytes"<<std::endl;
+        }
+
+        // These two functions are required by parser.
+        void set_referenced(bool ref) { m_ref = ref; }
+        bool referenced() const { return m_ref; }
+
+      private:
+        std::stack<int> tracker_;
+        uint16_t level_ = 0;
+        bool is_key_ = false;
+    };
+
     std::string data_str;
-    karabo_visitor visitor(data_str);
+    visitor vst(data_str);
 #ifdef DEBUG
     assert(msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), visitor));
 #else
-    msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), visitor);
+    msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), vst);
 #endif
     return data_str;
 }
