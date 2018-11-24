@@ -142,9 +142,9 @@ public:
     MsgpackObject() = default;  // must be default constructable
 
     explicit MsgpackObject(const msgpack::object& value): value_(value) {
-        if (value.type == msgpack::type::object_type::ARRAY ||
-                value.type == msgpack::type::object_type::MAP ||
-                value.type == msgpack::type::object_type::BIN)
+        if (value.type == msgpack::type::object_type::ARRAY
+                || value.type == msgpack::type::object_type::MAP
+                || value.type == msgpack::type::object_type::BIN)
             size_ = value.via.array.size;
 
         if (value.type == msgpack::type::object_type::ARRAY)
@@ -152,7 +152,7 @@ public:
         else if (value.type == msgpack::type::object_type::BIN)
             dtype_ = "char";
         else if (value.type == msgpack::type::object_type::MAP
-            || value.type == msgpack::type::object_type::EXT)
+                || value.type == msgpack::type::object_type::EXT)
             dtype_ = "undefined";
         else dtype_ = msgpack_type_map.at(value.type);
     }
@@ -178,8 +178,7 @@ public:
         } catch(std::bad_cast& e) {
             std::string error_msg;
             if (size_)
-                error_msg = ("The expected type is a(n) "
-                             + containerType() + " of " + dtype());
+                error_msg = ("The expected type is a(n) " + containerType() + " of " + dtype());
             else
                 error_msg = ("The expected type is " + dtype());
 
@@ -198,8 +197,8 @@ public:
 
     std::string containerType() const override {
         if (!size_) return ""; // scalar and NIL
-        if (value_.type == msgpack::type::object_type::ARRAY ||
-                value_.type == msgpack::type::object_type::BIN)
+        if (value_.type == msgpack::type::object_type::ARRAY
+                || value_.type == msgpack::type::object_type::BIN)
             return "array-like";
         if (value_.type == msgpack::type::object_type::MAP) return "map";
         return msgpack_type_map.at(value_.type);
@@ -224,9 +223,8 @@ template<typename ElementType, std::size_t N>
 struct as_imp<std::array<ElementType, N>, ElementType> {
     std::array<ElementType, N> operator()(void*ptr_, std::size_t size) {
         if (size != N)
-            throw CastErrorNDArray("The input size " + std::to_string(N)
-                                   + " is different from the expected size "
-                                   + std::to_string(size));
+            throw CastErrorNDArray("The input size " + std::to_string(N) +
+                " is different from the expected size " + std::to_string(size));
         auto ptr = reinterpret_cast<const ElementType*>(ptr_);
         std::array<ElementType, N> arr;
         memcpy(arr.data(), ptr, size * sizeof(ElementType));
@@ -280,8 +278,8 @@ public:
     Container as() const {
         typedef typename Container::value_type ElementType;
         if (!checkTypeByString<ElementType>(dtype_))
-            throw TypeMismatchErrorNDArray("The expected type is a(n) "
-                                           + containerType() + " of " + dtype());
+            throw TypeMismatchErrorNDArray(
+                "The expected type is a(n) " + containerType() + " of " + dtype());
         detail::as_imp<Container, ElementType> as_imp_instance;
         return as_imp_instance(ptr_, size());
     }
@@ -571,7 +569,7 @@ std::string vectorToString(const std::vector<T>& vec) {
 /*
  * Convert the python type to the corresponding C++ type
  */
-void toCppTypeString(std::string& dtype) {
+inline void toCppTypeString(std::string& dtype) {
     if (dtype.find("int") != std::string::npos)
         dtype.append("_t");
     else if (dtype == "float32")
@@ -650,8 +648,8 @@ public:
         MultipartMsg mpmsg = receiveMultipartMsg();
         if (mpmsg.empty()) return data_pkg;
         if (mpmsg.size() % 2)
-            throw std::runtime_error("The multipart message is expected to "
-                                     "contain (header, data) pairs!");
+            throw std::runtime_error(
+                "The multipart message is expected to contain (header, data) pairs!");
 
         kb_data kbdt;
 
