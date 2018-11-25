@@ -3,10 +3,12 @@ project(client_for_smlt_camera)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -g")
 
-set(zmq_LIBRARY "$ENV{HOME}/share/zeromq/lib/libzmq.so")
+set(INSTALL_PATH "$ENV{HOME}/share")
 
-set(KBCPP_INSTALL_PREFIX "$ENV{HOME}/share/karabo_bridge_cpp")
-include_directories("${KBCPP_INSTALL_PREFIX}/include")
+set(zmq_LIBRARY "${INSTALL_PATH}/zeromq/lib/libzmq.so")
+
+include_directories(${INSTALL_PATH}/zeromq/include)
+include_directories(${INSTALL_PATH}/include)
 
 add_executable(smlt_camera_cli client_for_smlt_camera.cpp)
-target_link_libraries(smlt_camera_cli ${KBCPP_INSTALL_PREFIX}/lib/libkbcpp.a ${zmq_LIBRARY})
+target_link_libraries(smlt_camera_cli ${zmq_LIBRARY})

@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/European-XFEL/karabo-bridge-cpp.svg?branch=master)](https://travis-ci.org/European-XFEL/karabo-bridge-cpp)
 
-*karabo-bridge-cpp* is a C++ client to receive pipeline data from the Karabo control system used at [European XFEL](https://www.xfel.eu/).
+*karabo-bridge-cpp* provides a C++ interface to receive pipeline data from the Karabo control system used at [European XFEL](https://www.xfel.eu/).
 
 ## Requirements
 
@@ -18,27 +18,31 @@ The Maxwell cluster uses *CMake 2.8.12.2*.
 
 ## Build and install
 
+A bash script is provided to download the dependencies as well as build, test and install the library and relevant tools.
+
 - On the Maxwell cluster
 
-A bash script is provided to download the dependencies, build, test and install the library:
 ```sh
 $ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
 $ cd karabo-bridge-cpp
 $ ./autogen.sh install /YOUR/TARGET/FOLDER
 ```
-
-The installation directory structure is:
+The default target folder is `$HOME/share/` and  the installation directory structure is:
 ```sh
 /YOUR/TARGET/FOLDER
-|-- lib
-    |-- libkbcpp.a
-|-- include
-    |-- kb_client.hpp
-|-- bin
-    |-- kbcpp-glimpse
+    |-- zeromq
+        |-- include
+        |-- lib
+        |-- bin
+        |-- share
+    |-- include
+        |-- kb_client.hpp
+        |-- zmq.hpp
+        |-- msgpack.hpp
+        |-- ...
+    |-- bin
+        |-- kbcpp-glimpse
 ```
-
-The default target folder is `$HOME/share/karabo_bridge_cpp/`.
 
 - On the online cluster
 
@@ -60,11 +64,17 @@ $ scp -r karabo-bridge-cpp USERNAME@ONLINE_CLUSTER_NAME:
 $ ssh USERNAME@ONLINE_CLUSTER_NAME
 ```
 
-Finally, build and install the library:
+Finally, build and install the library as well as dependencies:
 
 ```sh
 $ cd karabo-bridge-cpp
 $ ./autogen.sh install
+```
+
+## Unit test
+
+```sh
+$ ./autogen.sh test
 ```
 
 ## Integration test
@@ -77,20 +87,24 @@ First, start the simulated server implemented in [karabo-bridge-py](https://gith
 $ karabo-bridge-server-sim 1234 -n 2
 ```
 
-Then run the client
+Then run the client in another terminal:
 
 ```sh
-$ build/integration_test/pysim
+$ ./autogen.sh integration_test 
 ```
 
 - Integration test using Docker:
 
 ```sh
 # set up
-$ sudo docker-compose up
+$ sudo docker-compose up --build
 # tear down
 $ sudo docker-compose down
 ```
+
+## Include the library in your own code
+
+`karabo-bridge-cpp` is **not** a header only library! You need both `kb_client.hpp` and the dependencies to build your own code. An example `CMakeLists.txt` can be found in the folder `examples/smlt_camera`.
 
 ## Usage
 

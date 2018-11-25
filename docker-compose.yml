@@ -8,7 +8,7 @@ services:
     image: karabo-bridge-client
     links:
       - server
-    command: bash -c "make -C /karabo-bridge-cpp/build test && /karabo-bridge-cpp/build/integration_test/pysim server:1234"
+    command: bash -c "pushd karabo-bridge-cpp && ./autogen.sh clean && ./autogen.sh integration_test /root/share server:1234"
   server:
     build:
       context: ./tests
