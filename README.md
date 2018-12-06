@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/European-XFEL/karabo-bridge-cpp.svg?branch=master)](https://travis-ci.org/European-XFEL/karabo-bridge-cpp)
 
-*karabo-bridge-cpp* is a C++ client to receive pipeline data from the Karabo control system used at [European XFEL](https://www.xfel.eu/).
+*karabo-bridge-cpp* provides a C++ interface to receive pipeline data from the Karabo control system used at [European XFEL](https://www.xfel.eu/).
 
 ## Requirements
 
@@ -10,74 +10,103 @@
  - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.2
  - [msgpack](https://msgpack.org/index.html) >= 2.1.5
 
-## Set up the environment
-
 #### Compiler
 The Maxwell cluster uses *g++ 4.8.5*.
 
 #### CMake
 The Maxwell cluster uses *CMake 2.8.12.2*.
 
-#### ZeroMQ
+## Build and install
 
-If you have "sudoer", e.g. in your own PC, then
-```sh
-$ sudo sh -c "echo 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/release-stable/xUbuntu_16.04/ /' > /etc/apt/sources.list.d/network:messaging:zeromq:release-stable.list"
-$ sudo apt-get update
-$ sudo apt-get install libzmq3-dev
-```
+A bash script is provided to download the dependencies as well as build, test and install the library and relevant tools.
 
-If you are on a cluster, then
-
-```sh
-$ ./configure -prefix=${HOME}/share/zeromq
-$ make
-$ make install
-```
-
-#### cppzmq
-
-```sh
-$ wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz
-$ tar -xzf v4.2.2.tar.gz
-$ mkdir -p ${HOME}/share/cppzmq/include
-$ cp cppzmq-4.2.2/*.hpp ${HOME}/share/cppzmq/include
-```
-
-#### msgpack
-
-```sh
-$ wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz
-$ tar -xzf cpp-2.1.5.tar.gz
-$ mkdir -p ${HOME}/share/msgpack
-$ cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/
-```
-
-## Build and run unit test
+- On the Maxwell cluster
 
 ```sh
 $ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
 $ cd karabo-bridge-cpp
-$ ./autogen.sh
+$ ./autogen.sh install /YOUR/TARGET/FOLDER
+```
+The default target folder is `$HOME/share/` and  the installation directory structure is:
+```sh
+/YOUR/TARGET/FOLDER
+    |-- zeromq
+        |-- include
+        |-- lib
+        |-- bin
+        |-- share
+    |-- include
+        |-- kb_client.hpp
+        |-- zmq.hpp
+        |-- msgpack.hpp
+        |-- ...
+    |-- bin
+        |-- kbcpp-glimpse
 ```
 
-## Run the examples
+- On the online cluster
 
-- For [example1](./src/client_for_pysim.cpp), you will need to have a Python simulated server ([karabo-bridge-py]()) running in the background:
+Since there is no internet access on the online cluster, you need first to download the dependencies on a PC with internet access:
+
+```sh
+$ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
+$ cd karabo-bridge-cpp
+$ ./autogen.sh download
+```
+
+Then copy the `karabo-bridge-cpp` folder to the online cluster:
+
+```sh
+$ cd ..
+$ scp -r karabo-bridge-cpp USERNAME@exflgateway:
+$ ssh USERNAME@exflgateway
+$ scp -r karabo-bridge-cpp USERNAME@ONLINE_CLUSTER_NAME:
+$ ssh USERNAME@ONLINE_CLUSTER_NAME
+```
+
+Finally, build and install the library as well as dependencies:
+
+```sh
+$ cd karabo-bridge-cpp
+$ ./autogen.sh install
+```
+
+## Unit test
+
+```sh
+$ ./autogen.sh test
+```
+
+## Integration test
+
+- Integration test in two steps
+
+First, start the simulated server implemented in [karabo-bridge-py](https://github.com/European-XFEL/karabo-bridge-py):
 
 ```sh
 $ karabo-bridge-server-sim 1234 -n 2
 ```
 
-then
+Then run the client in another terminal:
 
 ```sh
-$ build/run1
+$ ./autogen.sh integration_test 
 ```
 
-## How to use
+- Integration test using Docker:
 
-Include the header file `karabo-bridge-cpp/include/kb_client.hpp` in your code and build.
+```sh
+# set up
+$ sudo docker-compose up --build
+# tear down
+$ sudo docker-compose down
+```
+
+## Include the library in your own code
+
+`karabo-bridge-cpp` is **not** a header only library! You need both `kb_client.hpp` and the dependencies to build your own code. An example `CMakeLists.txt` can be found in the folder `examples/smlt_camera`.
+
+## Usage
 
 ```c++
 import "kb_client.hpp"
@@ -195,27 +224,15 @@ assert(kb_data.array["image.data"].shape()[3] == 64);
 assert(kb_data.array["image.data"].size() == 16*128*512*64);
 ```
 
-## Tools
+## Command line tools
 
 #### glimpse
 
 To show the data structure:
 ```sh
-$ build/glimpse tcp://localhost:1234
+$ kbcpp-glimpse tcp://localhost:1234
 ```
 To show the message structure:
 ```sh
-$ build/glimpse tcp://localhost:1234 m
+$ kbcpp-glimpse tcp://localhost:1234 m
 ```
-
-## Docker
-
-Integration test with Docker:
-
-```sh
-# set up
-$ sudo docker-compose up
-# tear down
-$ sudo docker-compose down
-```
-ls

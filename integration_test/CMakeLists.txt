@@ -1,0 +1,2 @@
+add_executable(pysim_client client_for_pysim.cpp)
+target_link_libraries(pysim_client kbcpp)

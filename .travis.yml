@@ -18,9 +18,8 @@ matrix:
         - sudo docker build -t karabo-bridge-client .
         - sudo docker network create mynet
       script:
-        - sudo docker run --rm karabo-bridge-client make -C /karabo-bridge-cpp/build test 
         - sudo docker run --rm --name server --net mynet karabo-bridge-server /bin/bash -c "karabo-bridge-server-sim 1234 -n 2"&
-        - sudo docker run --rm -it --net mynet karabo-bridge-client /karabo-bridge-cpp/build/run1 server:1234
+        - sudo docker run --rm -it --net mynet karabo-bridge-client /bin/bash -c "pushd karabo-bridge-cpp && ./autogen.sh integration_test /root/share server:1234"
     - os: linux
       addons:
         apt:
@@ -46,32 +45,10 @@ matrix:
         - pushd karabo-bridge-py
         - sudo python${PYTHON} -m pip install -e .
         - popd
-        # ZeroMQ
-        - wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.tar.gz
-        - tar -xvzf zeromq-4.2.5.tar.gz
-        - cd zeromq-4.2.5
-        - ./configure -prefix=${HOME}/share/zeromq
-        - make -j${nproc}
-        - make install
-        - cd ..
-        # cppzmq
-        - wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz
-        - tar -xvzf v4.2.2.tar.gz
-        - mkdir -p ${HOME}/share/cppzmq/include
-        - cp cppzmq-4.2.2/*.hpp ${HOME}/share/cppzmq/include/
-        # msgpack
-        - wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz
-        - tar -xvzf cpp-2.1.5.tar.gz
-        - mkdir -p ${HOME}/share/msgpack
-        - cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/
         # karabo-bridge-cpp
         - popd
-        - mkdir build && cd build
-        - ls
-        - cmake ..
-        - make -j${nproc}
+        - ./autogen.sh test
       
       script:
-        - make test
         - karabo-bridge-server-sim 1234 -n 2&
-        - ./run1
+        - ./autogen.sh integration_test

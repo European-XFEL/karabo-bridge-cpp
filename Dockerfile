@@ -15,40 +15,9 @@ RUN yum install -y gcc && \
     yum install -y tar && \
     yum clean all
 
-# install libzmq
-RUN wget https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.tar.gz \
-  && tar -xzf zeromq-4.2.5.tar.gz && rm zeromq-4.2.5.tar.gz \
-  && pushd zeromq-4.2.5 \
-  && ./configure -prefix=${HOME}/share/zeromq \
-  && make \
-  && make install \
-  && popd \
-  && rm -r zeromq-4.2.5
-
-# install cppzmq
-RUN wget https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz \
-  && tar -xzf v4.2.2.tar.gz \
-  && rm v4.2.2.tar.gz \
-  && mkdir -p ${HOME}/share/cppzmq/include \
-  && cp cppzmq-4.2.2/*.hpp ${HOME}/share/cppzmq/include \
-  && rm -r cppzmq-4.2.2
-
-# install msgpack
-RUN wget https://github.com/msgpack/msgpack-c/archive/cpp-2.1.5.tar.gz \
-  && tar -xzf cpp-2.1.5.tar.gz \
-  && rm cpp-2.1.5.tar.gz \
-  && mkdir -p ${HOME}/share/msgpack \
-  && cp -r msgpack-c-cpp-2.1.5/include ${HOME}/share/msgpack/ \
-  && rm -r msgpack-c-cpp-2.1.5
-
 COPY . ./karabo-bridge-cpp
 
 # build karabo-bridge-cpp
-RUN pushd karabo-bridge-cpp \
-  && if [ -d "build" ]; then rm -r build; fi \
-  && mkdir build && pushd build \
-  && cmake .. \
-  && make -j${nproc} \
-  && make test
+RUN pushd karabo-bridge-cpp && ./autogen.sh clean && ./autogen.sh test 
 
 CMD ["/bin/bash"]
