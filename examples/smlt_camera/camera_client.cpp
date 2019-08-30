@@ -11,7 +11,7 @@
  * Author: Jun Zhu, zhujun981661@gmail.com
  *
  */
-#include "kb_client.hpp"
+#include "karabo-bridge/kb_client.hpp"
 
 #include <iostream>
 #include <thread>

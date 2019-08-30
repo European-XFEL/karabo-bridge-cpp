@@ -6,9 +6,24 @@
 
 ## Requirements
 
- - [ZeroMQ](http://zeromq.org/) >= 4.2.5
- - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.2
- - [msgpack](https://msgpack.org/index.html) >= 2.1.5
+ - [ZeroMQ](http://zeromq.org/) >= 4.3.1
+ - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.5
+ - [msgpack](https://msgpack.org/index.html) >= 3.2.0
+
+## Deployment
+
+```shell script
+$ module load exfel exfel_anaconda3
+
+# install dependencies
+$ conda install -c anaconda cmake
+$ conda install -c omgarcia gcc-6
+
+$ conda install -c conda-forge cppzmq msgpack-c
+
+# install karabo-bridge-cpp
+```
+
 
 #### Compiler
 The Maxwell cluster uses *g++ 4.8.5*.
@@ -222,17 +237,4 @@ assert(kb_data.array["image.data"].shape()[1] == 128);
 assert(kb_data.array["image.data"].shape()[2] == 512);
 assert(kb_data.array["image.data"].shape()[3] == 64);
 assert(kb_data.array["image.data"].size() == 16*128*512*64);
-```
-
-## Command line tools
-
-#### glimpse
-
-To show the data structure:
-```sh
-$ kbcpp-glimpse tcp://localhost:1234
-```
-To show the message structure:
-```sh
-$ kbcpp-glimpse tcp://localhost:1234 m
 ```

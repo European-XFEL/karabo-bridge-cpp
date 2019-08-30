@@ -37,6 +37,10 @@
 #pragma message("DEPRECATED is not defined for this compiler")
 #endif
 
+#define KARABO_BRIDGE_VERSION_MAJOR 0
+#define KARABO_BRIDGE_VERSION_MINOR 2
+#define KARABO_BRIDGE_VERSION_PATCH 0
+
 
 namespace karabo_bridge {
 
@@ -63,7 +67,6 @@ class CastError : public std::exception {
     std::string msg_;
 public:
     explicit CastError(const std::string& msg) : msg_(msg) {}
-
     virtual const char* what() const throw() {
         return msg_.c_str() ;
     }

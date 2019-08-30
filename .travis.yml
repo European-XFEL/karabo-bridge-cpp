@@ -10,45 +10,37 @@ matrix:
         apt:
           packages:
             - docker-ce
-      env:
-          - DOCKER-VERSION: latest
-      before_install:
-        - sudo docker --version
-        - sudo docker build -t karabo-bridge-server -f tests/server.Dockerfile tests
-        - sudo docker build -t karabo-bridge-client .
-        - sudo docker network create mynet
       script:
-        - sudo docker run --rm --name server --net mynet karabo-bridge-server /bin/bash -c "karabo-bridge-server-sim 1234 -n 2"&
-        - sudo docker run --rm -it --net mynet karabo-bridge-client /bin/bash -c "pushd karabo-bridge-cpp && ./autogen.sh integration_test /root/share server:1234"
+        - docker-compose up --build --exit-code-from client
     - os: linux
       addons:
         apt:
           sources:
             - ubuntu-toolchain-r-test
-            - deadsnakes
-          packages:
-            - g++-5
-            - python3.6
-      env:
-        - MATRIX_EVAL="CC=gcc-5 && CXX=g++-5 && PYTHON=3.6"
       before_install:
-        - eval ${MATRIX_EVAL}
-        - python${PYTHON} -V
-        - cmake --version
-        # pip
-        - curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-        - sudo python${PYTHON} get-pip.py
+        - MINCONDA_OS=$MINCONDA_LINUX
+        - wget "http://repo.continuum.io/miniconda/Miniconda3-${MINCONDA_VERSION}-${MINCONDA_OS}.sh" -O miniconda.sh
+        - bash miniconda.sh -b -p ${HOME}/miniconda
+        - export PATH="${HOME}/miniconda/bin:${PATH}"
+        - conda config --set always_yes yes
+        - conda update -q conda
       install:
-        - pushd ..
-        # simulator
-        - git clone https://github.com/European-XFEL/karabo-bridge-py
-        - pushd karabo-bridge-py
-        - sudo python${PYTHON} -m pip install -e .
-        - popd
-        # karabo-bridge-cpp
-        - popd
-        - ./autogen.sh test
-      
+        # install dependencies
+        - conda install -c anaconda cmake
+        - conda install -c omgarcia gcc-6
+        - conda install -c conda-forge cppzmq msgpack-c
+        # install Python bridge for integration test
+        - pip install karabo-bridge
       script:
-        - karabo-bridge-server-sim 1234 -n 2&
-        - ./autogen.sh integration_test
+        - export PATH="${HOME}/miniconda/bin:${PATH}"
+        - export LD_LIBRARY_PATH="${HOME}/miniconda/lib"
+        - mkdir build && cd build
+        - cmake -DBUILD_TESTS=ON -DBUILD_INTEGRATION_TEST=ON -DBUILD_EXAMPLES=ON ../
+        - make && make test
+        - karabo-bridge-server-sim -d AGIPD -n 2 1234&
+        - integration_test/pysim_client localhost:1234
+
+env:
+  global:
+    - MINCONDA_VERSION="latest"
+    - MINCONDA_LINUX="Linux-x86_64"
