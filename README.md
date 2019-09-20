@@ -4,13 +4,15 @@
 
 *karabo-bridge-cpp* provides a C++ interface to receive pipeline data from the Karabo control system used at [European XFEL](https://www.xfel.eu/).
 
-## Requirements
+## Dependencies
 
  - [ZeroMQ](http://zeromq.org/) >= 4.3.1
  - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.5
  - [msgpack](https://msgpack.org/index.html) >= 3.2.0
 
 ## Deployment
+
+### Build and install
 
 ```shell script
 $ module load exfel exfel_anaconda3
@@ -22,79 +24,27 @@ $ conda install -c omgarcia gcc-6
 $ conda install -c conda-forge cppzmq msgpack-c
 
 # install karabo-bridge-cpp
-```
-
-
-#### Compiler
-The Maxwell cluster uses *g++ 4.8.5*.
-
-#### CMake
-The Maxwell cluster uses *CMake 2.8.12.2*.
-
-## Build and install
-
-A bash script is provided to download the dependencies as well as build, test and install the library and relevant tools.
-
-- On the Maxwell cluster
-
-```sh
 $ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
 $ cd karabo-bridge-cpp
-$ ./autogen.sh install /YOUR/TARGET/FOLDER
-```
-The default target folder is `$HOME/share/` and  the installation directory structure is:
-```sh
-/YOUR/TARGET/FOLDER
-    |-- zeromq
-        |-- include
-        |-- lib
-        |-- bin
-        |-- share
-    |-- include
-        |-- kb_client.hpp
-        |-- zmq.hpp
-        |-- msgpack.hpp
-        |-- ...
-    |-- bin
-        |-- kbcpp-glimpse
+$ mkdir build && cd build
+$ cmake ../ && make
+$ make install
+
 ```
 
-- On the online cluster
-
-Since there is no internet access on the online cluster, you need first to download the dependencies on a PC with internet access:
+### Unit test
 
 ```sh
-$ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
-$ cd karabo-bridge-cpp
-$ ./autogen.sh download
+$ # mkdir build && cd build
+$ cmake -DBUILD_TESTS=ON ../ && make
+$ make test
 ```
 
-Then copy the `karabo-bridge-cpp` folder to the online cluster:
+### Integration test
 
-```sh
-$ cd ..
-$ scp -r karabo-bridge-cpp USERNAME@exflgateway:
-$ ssh USERNAME@exflgateway
-$ scp -r karabo-bridge-cpp USERNAME@ONLINE_CLUSTER_NAME:
-$ ssh USERNAME@ONLINE_CLUSTER_NAME
-```
+There are two ways to run the integration test:
 
-Finally, build and install the library as well as dependencies:
-
-```sh
-$ cd karabo-bridge-cpp
-$ ./autogen.sh install
-```
-
-## Unit test
-
-```sh
-$ ./autogen.sh test
-```
-
-## Integration test
-
-- Integration test in two steps
+1. *Integration test in two steps*
 
 First, start the simulated server implemented in [karabo-bridge-py](https://github.com/European-XFEL/karabo-bridge-py):
 
@@ -105,10 +55,12 @@ $ karabo-bridge-server-sim 1234 -n 2
 Then run the client in another terminal:
 
 ```sh
-$ ./autogen.sh integration_test 
+$ # mkdir build && cd build
+$ cmake -DBUILD_INTEGRATION_TEST=ON ../ && make
+$ make integration_test
 ```
 
-- Integration test using Docker:
+2. *Integration test using Docker-compose*
 
 ```sh
 # set up
