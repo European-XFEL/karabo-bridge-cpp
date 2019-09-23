@@ -16,4 +16,4 @@ if (NOT TARGET karabo-bridge)
 endif()
 
 add_executable(glimpse glimpse.cpp)
-target_link_libraries(glimpse PRIVATE karabo-bridge karabo-bridge)
+target_link_libraries(glimpse PRIVATE karabo-bridge)

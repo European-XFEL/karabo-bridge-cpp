@@ -14,7 +14,7 @@
 ### Build and install
 
 ```shell script
-$ module load exfel exfel_anaconda3
+$ module load exfel karabo-bridge-cpp
 
 # install dependencies
 $ conda install -c anaconda cmake
@@ -68,14 +68,41 @@ $ sudo docker-compose up --build
 $ sudo docker-compose down
 ```
 
-## Include the library in your own code
+## Examples
 
-`karabo-bridge-cpp` is **not** a header only library! You need both `kb_client.hpp` and the dependencies to build your own code. An example `CMakeLists.txt` can be found in the folder `examples/smlt_camera`.
+To build your software on the online cluster with `karabo-bridge-cpp`, 
+please first activate the conda environment by 
+
+```shell script
+$ module load exfel karabo-bridge-cpp
+```
+
+, then add the following lines to your `CMakeLists.txt`
+
+```cmake
+find_package(karabo-bridge REQUIRED CONFIG)
+
+target_link_libraries(<your target name> PRIVATE karabo-bridge)
+```
+
+#### glimpse
+
+`glimpse` is a command line tool which provides a summary of the data / message structure sent out by the server.
+
+```shell script
+$ cd examples/glimpse
+$ mkdir build && cd build
+
+# show the data structure
+$ glimpse/glimpse ServerTcpAddress
+# show the message structure
+$ glimpse/glimpse ServerTcpAddress m
+```
 
 ## Usage
 
 ```c++
-import "kb_client.hpp"
+include "karabo-bridge/kb_client.hpp"
 
 karabo_bridge::Client client;
 client.connect("tcp://localhost:1234")
