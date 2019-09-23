@@ -19,8 +19,6 @@
 
 include(CMakeFindDependencyMacro)
 
-find_dependency(ZeroMQ @ZeroMQ_REQUIRED_VERSION@)
-
 find_dependency(cppzmq @cppzmq_REQUIRED_VERSION@)
 
 find_dependency(msgpack @msgpack_REQUIRED_VERSION@)
