@@ -20,4 +20,4 @@ services:
       - "1234"
     command: bash -c "pushd karabo-bridge-py &&
                       pip install --upgrade . &&
-                      karabo-bridge-server-sim -d AGIPD -n 2 1234"
+                      karabo-bridge-server-sim -d AGIPD 1234"
