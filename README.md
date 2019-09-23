@@ -6,7 +6,6 @@
 
 ## Dependencies
 
- - [ZeroMQ](http://zeromq.org/) >= 4.3.1
  - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.5
  - [msgpack](https://msgpack.org/index.html) >= 3.2.0
 
@@ -27,8 +26,8 @@ $ conda install -c conda-forge cppzmq msgpack-c
 $ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
 $ cd karabo-bridge-cpp
 $ mkdir build && cd build
-$ cmake ../ && make
-$ make install
+$ cmake -DCMAKE_INSTALL_PREFIX="/gpfs/exfel/sw/software/xfel_anaconda3/karabo-bridge-cpp" ../
+$ make && make install
 
 ```
 
