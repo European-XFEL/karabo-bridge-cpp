@@ -17,7 +17,5 @@ if (NOT TARGET karabo-bridge)
     find_package(karabo-bridge REQUIRED CONFIG)
 endif()
 
-get_target_property(karabo-bridge_LINK_LIBRARY karabo-bridge INTERFACE_LINK_LIBRARIES)
-
 add_executable(pysim_client client_for_pysim.cpp)
-target_link_libraries(pysim_client PRIVATE karabo-bridge ${karabo-bridge_LINK_LIBRARIES})
+target_link_libraries(pysim_client PRIVATE karabo-bridge)

@@ -12,7 +12,7 @@ foreach(filename IN LISTS unittests)
     string(REPLACE ".cpp" "" targetname ${filename})
     string(REPLACE "tests/" "" targetname ${targetname})
     add_executable(${targetname} ${filename})
-    target_link_libraries(${targetname} PRIVATE karabo-bridge ${karabo-bridge_LINK_LIBRARIES})
+    target_link_libraries(${targetname} PRIVATE karabo-bridge)
 
     string(TOUPPER ${targetname} testname)
     add_test(${testname} ${targetname})

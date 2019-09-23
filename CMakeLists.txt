@@ -39,12 +39,6 @@ message(STATUS "Building karabo-bridge v${${PROJECT_NAME}_VERSION}")
 # Dependencies
 # ============
 
-set(ZeroMQ_REQUIRED_VERSION 4.3.1)
-find_package(ZeroMQ ${ZeroMQ_REQUIRED_VERSION} REQUIRED)
-if(ZeroMQ_FOUND)
-    message(STATUS "Found ZeroMQ: ${ZeroMQ_VERSION}, ${ZeroMQ_LIBRARY}")
-endif()
-
 set(cppzmq_REQUIRED_VERSION 4.2.5)
 find_package(cppzmq ${cppzmq_REQUIRED_VERSION} REQUIRED)
 if(cppzmq_FOUND)
@@ -71,7 +65,7 @@ target_include_directories(karabo-bridge
         $<BUILD_INTERFACE:${KARABO_BRIDGE_INCLUDE_DIR}>
         $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(karabo-bridge INTERFACE ${ZeroMQ_LIBRARY} cppzmq msgpackc-cxx)
+target_link_libraries(karabo-bridge INTERFACE cppzmq msgpackc-cxx)
 
 # ==================
 # Tests and examples

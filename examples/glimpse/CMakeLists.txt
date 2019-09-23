@@ -15,7 +15,5 @@ if (NOT TARGET karabo-bridge)
     find_package(karabo-bridge REQUIRED CONFIG)
 endif()
 
-get_target_property(karabo-bridge_LINK_LIBRARY karabo-bridge INTERFACE_LINK_LIBRARIES)
-
 add_executable(glimpse glimpse.cpp)
-target_link_libraries(glimpse PRIVATE karabo-bridge karabo-bridge ${karabo-bridge_LINK_LIBRARIES})
+target_link_libraries(glimpse PRIVATE karabo-bridge karabo-bridge)

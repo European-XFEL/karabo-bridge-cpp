@@ -15,7 +15,5 @@ if (NOT TARGET karabo-bridge)
     find_package(karabo-bridge REQUIRED CONFIG)
 endif()
 
-get_target_property(karabo-bridge_LINK_LIBRARY karabo-bridge INTERFACE_LINK_LIBRARIES)
-
 add_executable(camera_cli camera_client.cpp)
-target_link_libraries(camera_cli PRIVATE karabo-bridge karabo-bridge ${karabo-bridge_LINK_LIBRARIES})
+target_link_libraries(camera_cli PRIVATE karabo-bridge)
