@@ -151,7 +151,10 @@ public:
             size_ = value.via.array.size;
 
         if (value.type == msgpack::type::object_type::ARRAY)
-            dtype_ = msgpack_type_map.at(value.via.array.ptr[0].type);
+            if (value.via.array.ptr)
+                dtype_ = msgpack_type_map.at(value.via.array.ptr[0].type);
+            else
+                dtype_ = "unknown";
         else if (value.type == msgpack::type::object_type::BIN)
             dtype_ = "char";
         else if (value.type == msgpack::type::object_type::MAP
