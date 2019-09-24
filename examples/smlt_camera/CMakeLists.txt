@@ -1,14 +1,19 @@
-cmake_minimum_required(VERSION 2.8.12)
-project(client_for_smlt_camera)
+##############################################################################
+# Copyright (c) 2018, European X-Ray Free-Electron Laser Facility GmbH
+# All rights reserved.
+#
+# You should have received a copy of the 3-Clause BSD License along with this
+# program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
+#
+# Author: Jun Zhu, zhujun981661@gmail.com
+##############################################################################
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -g")
+cmake_minimum_required(VERSION 3.1)
 
-set(INSTALL_PATH "$ENV{HOME}/share")
+if (NOT TARGET karabo-bridge)
+    project(karabo-bridge_simulated_camera)
+    find_package(karabo-bridge REQUIRED CONFIG)
+endif()
 
-set(zmq_LIBRARY "${INSTALL_PATH}/zeromq/lib/libzmq.so")
-
-include_directories(${INSTALL_PATH}/zeromq/include)
-include_directories(${INSTALL_PATH}/include)
-
-add_executable(smlt_camera_cli client_for_smlt_camera.cpp)
-target_link_libraries(smlt_camera_cli ${zmq_LIBRARY})
+add_executable(camera_cli camera_client.cpp)
+target_link_libraries(camera_cli PRIVATE karabo-bridge)

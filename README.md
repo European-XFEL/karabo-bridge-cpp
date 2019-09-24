@@ -4,82 +4,46 @@
 
 *karabo-bridge-cpp* provides a C++ interface to receive pipeline data from the Karabo control system used at [European XFEL](https://www.xfel.eu/).
 
-## Requirements
+## Dependencies
 
- - [ZeroMQ](http://zeromq.org/) >= 4.2.5
- - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.2
- - [msgpack](https://msgpack.org/index.html) >= 2.1.5
+ - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.5
+ - [msgpack](https://msgpack.org/index.html) >= 3.2.0
 
-#### Compiler
-The Maxwell cluster uses *g++ 4.8.5*.
+## Deployment
 
-#### CMake
-The Maxwell cluster uses *CMake 2.8.12.2*.
+### Build and install
 
-## Build and install
+```shell script
+$ module load exfel karabo-bridge-cpp
 
-A bash script is provided to download the dependencies as well as build, test and install the library and relevant tools.
+# install dependencies
+$ conda install -c anaconda cmake
+$ conda install -c omgarcia gcc-6
 
-- On the Maxwell cluster
+$ conda install -c conda-forge cppzmq msgpack-c
 
-```sh
+# install karabo-bridge-cpp
 $ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
 $ cd karabo-bridge-cpp
-$ ./autogen.sh install /YOUR/TARGET/FOLDER
-```
-The default target folder is `$HOME/share/` and  the installation directory structure is:
-```sh
-/YOUR/TARGET/FOLDER
-    |-- zeromq
-        |-- include
-        |-- lib
-        |-- bin
-        |-- share
-    |-- include
-        |-- kb_client.hpp
-        |-- zmq.hpp
-        |-- msgpack.hpp
-        |-- ...
-    |-- bin
-        |-- kbcpp-glimpse
+$ mkdir build && cd build
+$ cmake -DCMAKE_INSTALL_PREFIX="/gpfs/exfel/sw/software/xfel_anaconda3/karabo-bridge-cpp" ../
+$ make && make install
+
 ```
 
-- On the online cluster
-
-Since there is no internet access on the online cluster, you need first to download the dependencies on a PC with internet access:
+### Unit test
 
 ```sh
-$ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
-$ cd karabo-bridge-cpp
-$ ./autogen.sh download
+$ # mkdir build && cd build
+$ cmake -DBUILD_TESTS=ON ../ && make
+$ make test
 ```
 
-Then copy the `karabo-bridge-cpp` folder to the online cluster:
+### Integration test
 
-```sh
-$ cd ..
-$ scp -r karabo-bridge-cpp USERNAME@exflgateway:
-$ ssh USERNAME@exflgateway
-$ scp -r karabo-bridge-cpp USERNAME@ONLINE_CLUSTER_NAME:
-$ ssh USERNAME@ONLINE_CLUSTER_NAME
-```
+There are two ways to run the integration test:
 
-Finally, build and install the library as well as dependencies:
-
-```sh
-$ cd karabo-bridge-cpp
-$ ./autogen.sh install
-```
-
-## Unit test
-
-```sh
-$ ./autogen.sh test
-```
-
-## Integration test
-
-- Integration test in two steps
+1. *Integration test in two steps*
 
 First, start the simulated server implemented in [karabo-bridge-py](https://github.com/European-XFEL/karabo-bridge-py):
 
@@ -90,10 +54,12 @@ $ karabo-bridge-server-sim 1234 -n 2
 Then run the client in another terminal:
 
 ```sh
-$ ./autogen.sh integration_test 
+$ # mkdir build && cd build
+$ cmake -DBUILD_INTEGRATION_TEST=ON ../ && make
+$ make integration_test
 ```
 
-- Integration test using Docker:
+2. *Integration test using Docker-compose*
 
 ```sh
 # set up
@@ -102,14 +68,41 @@ $ sudo docker-compose up --build
 $ sudo docker-compose down
 ```
 
-## Include the library in your own code
+## Examples
 
-`karabo-bridge-cpp` is **not** a header only library! You need both `kb_client.hpp` and the dependencies to build your own code. An example `CMakeLists.txt` can be found in the folder `examples/smlt_camera`.
+To build your software on the online cluster with `karabo-bridge-cpp`, 
+please first activate the conda environment by 
+
+```shell script
+$ module load exfel karabo-bridge-cpp
+```
+
+, then add the following lines to your `CMakeLists.txt`
+
+```cmake
+find_package(karabo-bridge REQUIRED CONFIG)
+
+target_link_libraries(<your target name> PRIVATE karabo-bridge)
+```
+
+#### glimpse
+
+`glimpse` is a command line tool which provides a summary of the data / message structure sent out by the server.
+
+```shell script
+$ cd examples/glimpse
+$ mkdir build && cd build
+
+# show the data structure
+$ glimpse/glimpse ServerTcpAddress
+# show the message structure
+$ glimpse/glimpse ServerTcpAddress m
+```
 
 ## Usage
 
 ```c++
-import "kb_client.hpp"
+include "karabo-bridge/kb_client.hpp"
 
 karabo_bridge::Client client;
 client.connect("tcp://localhost:1234")
@@ -222,17 +215,4 @@ assert(kb_data.array["image.data"].shape()[1] == 128);
 assert(kb_data.array["image.data"].shape()[2] == 512);
 assert(kb_data.array["image.data"].shape()[3] == 64);
 assert(kb_data.array["image.data"].size() == 16*128*512*64);
-```
-
-## Command line tools
-
-#### glimpse
-
-To show the data structure:
-```sh
-$ kbcpp-glimpse tcp://localhost:1234
-```
-To show the message structure:
-```sh
-$ kbcpp-glimpse tcp://localhost:1234 m
 ```

@@ -1,22 +1,10 @@
 /*
- * A tool to view the data/message structure received by the bridge.
- *
- * Example:
- *
- * Show data structure:
- * ```
- * $ kbcpp-glimpse tcp://localhost:1234
- * ```
- *
- * Show message structure:
- * ```
- * $ kbcpp-glimpse tcp://localhost:1234 m (or M)
- * ```
+ * View the data/message structure received by the bridge.
  *
  * Author: Jun Zhu, zhujun981661@gmail.com
  *
  */
-#include "../kb_client.hpp"
+#include "karabo-bridge/kb_client.hpp"
 
 #include <iostream>
 #include <chrono>
