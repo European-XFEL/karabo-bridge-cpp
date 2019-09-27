@@ -377,11 +377,6 @@ struct kb_data {
         return data_.insert(std::forward<T>(value));
     }
 
-    // Use bytesReceived for clarity
-    DEPRECATED std::size_t size() const {
-        return bytesReceived();
-    }
-
     std::size_t bytesReceived() const {
         std::size_t size_ = 0;
         for (auto& m : mpmsg_) size_ += m.size();
