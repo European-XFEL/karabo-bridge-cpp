@@ -56,6 +56,28 @@ TEST(TestMultipartMsg, TestGeneral) {
             parseMultipartMsg(mpmsg, false));
 }
 
+TEST(TestClient, TestTimeout) {
+  // test client with short timeout
+  int timeout = 100;
+  Client client(timeout);
+  client.connect("tcp://localhost:12345");
+
+  auto future = std::async(std::launch::async, [&client]() {
+      client.next();
+  });
+  EXPECT_TRUE(future.wait_for(std::chrono::milliseconds(2*timeout)) == std::future_status::ready);
+
+  //  test client without timeout
+  Client client_inf;
+  client_inf.connect("tcp://localhost:12346");
+
+  auto future_inf = std::async(std::launch::async, [&client_inf]() {
+      client_inf.next();
+  });
+  EXPECT_TRUE(future_inf.wait_for(std::chrono::milliseconds(2*timeout)) == std::future_status::timeout);
+  client_inf.close(); // close the blocking socket
+}
+
 TEST(TestKbData, TestGeneral) {
   auto oh1 = _packObject_t<int>(100);
   auto oh2 = _packObject_t<float>(0.002);

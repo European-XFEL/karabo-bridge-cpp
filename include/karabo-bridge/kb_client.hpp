@@ -514,7 +514,7 @@ std::string parseMsg(const zmq::message_t& msg) {
           std::cerr << "parse error"<<std::endl;
         }
         void insufficient_bytes(size_t /*parsed_offset*/, size_t /*error_offset*/) {
-          std::cout << "insufficient bytes"<<std::endl;
+          std::cout << "insufficient bytes" << std::endl;
         }
 
         // These two functions are required by parser.
@@ -629,11 +629,33 @@ class Client {
     }
 
 public:
-    Client(): ctx_(1), socket_(ctx_, ZMQ_REQ) {}
+    /*
+     * Constructor.
+     *
+     * @param timeout: connection timeout in milliseconds. "-1" (default) for infinite.
+     */
+    Client(int timeout=-1): ctx_(1), socket_(ctx_, ZMQ_REQ) {
+      socket_.setsockopt(ZMQ_RCVTIMEO, timeout);
+      socket_.setsockopt(ZMQ_LINGER, 0);
+    }
+
+    // The destructor of zmq::context_t calls 'zmq_ctx_destroy'.
+    // The destructor of zmq::socket_t calls 'zmq_close'.
+    ~Client() = default;
+
+    // The copy and copy assignment constructor are implicitly deleted since
+    // those of zmq::context_t and zmq::socket_t are deleted.
+    Client(const Client&) = delete;
+    Client& operator=(const Client&) = delete;
 
     void connect(const std::string& endpoint) {
         std::cout << "Connecting to server: " << endpoint << std::endl;
-        socket_.connect(endpoint.c_str());
+        socket_.connect(endpoint);
+    }
+
+    void close() {
+      socket_.close();
+      ctx_.close();
     }
 
     /*
@@ -647,7 +669,11 @@ public:
 
         sendRequest();
         MultipartMsg mpmsg = receiveMultipartMsg();
-        if (mpmsg.empty()) return data_pkg;
+
+        // In case of timeout, "mpmsg" will contain an empty msg (parseMsg output
+        // "insufficient bytes".
+        if (mpmsg.size() <= 1) return data_pkg;
+
         if (mpmsg.size() % 2)
             throw std::runtime_error(
                 "The multipart message is expected to contain (header, data) pairs!");

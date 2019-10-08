@@ -52,7 +52,7 @@ $ glimpse/glimpse ServerTcpAddress m
 ```c++
 include "karabo-bridge/kb_client.hpp"
 
-karabo_bridge::Client client;
+karabo_bridge::Client client(100);  // timeout = 100 milliseconds, "-1" (default) for infinite
 client.connect("tcp://localhost:1234")
 ```
 
