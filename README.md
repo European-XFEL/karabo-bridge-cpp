@@ -9,65 +9,6 @@
  - [cppzmq](https://github.com/zeromq/cppzmq) >= 4.2.5
  - [msgpack](https://msgpack.org/index.html) >= 3.2.0
 
-## Deployment
-
-### Build and install
-
-```shell script
-$ module load exfel karabo-bridge-cpp
-
-# install dependencies
-$ conda install -c anaconda cmake
-$ conda install -c omgarcia gcc-6
-
-$ conda install -c conda-forge cppzmq msgpack-c
-
-# install karabo-bridge-cpp
-$ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
-$ cd karabo-bridge-cpp
-$ mkdir build && cd build
-$ cmake -DCMAKE_INSTALL_PREFIX="/gpfs/exfel/sw/software/xfel_anaconda3/karabo-bridge-cpp" ../
-$ make && make install
-
-```
-
-### Unit test
-
-```sh
-$ # mkdir build && cd build
-$ cmake -DBUILD_TESTS=ON ../ && make
-$ make test
-```
-
-### Integration test
-
-There are two ways to run the integration test:
-
-1. *Integration test in two steps*
-
-First, start the simulated server implemented in [karabo-bridge-py](https://github.com/European-XFEL/karabo-bridge-py):
-
-```sh
-$ karabo-bridge-server-sim 1234 -n 2
-```
-
-Then run the client in another terminal:
-
-```sh
-$ # mkdir build && cd build
-$ cmake -DBUILD_INTEGRATION_TEST=ON ../ && make
-$ make integration_test
-```
-
-2. *Integration test using Docker-compose*
-
-```sh
-# set up
-$ sudo docker-compose up --build
-# tear down
-$ sudo docker-compose down
-```
-
 ## Examples
 
 To build your software on the online cluster with `karabo-bridge-cpp`, 
@@ -84,6 +25,13 @@ find_package(karabo-bridge REQUIRED CONFIG)
 
 target_link_libraries(<your target name> PRIVATE karabo-bridge)
 ```
+
+You will also need to set the environmental variable by
+
+```shell script
+export LD_LIBRARY_PATH=/gpfs/exfel/sw/software/xfel_anaconda3/karabo-bridge-cpp/lib:$LD_LIBRARY_PATH
+```
+
 
 #### glimpse
 
@@ -215,4 +163,62 @@ assert(kb_data.array["image.data"].shape()[1] == 128);
 assert(kb_data.array["image.data"].shape()[2] == 512);
 assert(kb_data.array["image.data"].shape()[3] == 64);
 assert(kb_data.array["image.data"].size() == 16*128*512*64);
+```
+
+## Deployment
+
+### Build and install
+
+```shell script
+$ module load exfel karabo-bridge-cpp
+
+# install dependencies
+$ conda install -c anaconda cmake
+$ conda install -c omgarcia gcc-6
+
+$ conda install -c conda-forge cppzmq msgpack-c
+
+# install karabo-bridge-cpp
+$ git clone https://github.com/European-XFEL/karabo-bridge-cpp.git
+$ cd karabo-bridge-cpp
+$ mkdir build && cd build
+$ cmake -DCMAKE_INSTALL_PREFIX="/gpfs/exfel/sw/software/xfel_anaconda3/karabo-bridge-cpp" ../
+$ make && make install
+```
+
+### Unit test
+
+```sh
+$ # mkdir build && cd build
+$ cmake -DBUILD_TESTS=ON ../ && make
+$ make test
+```
+
+### Integration test
+
+There are two ways to run the integration test:
+
+1. *Integration test in two steps*
+
+First, start the simulated server implemented in [karabo-bridge-py](https://github.com/European-XFEL/karabo-bridge-py):
+
+```sh
+$ karabo-bridge-server-sim 1234 -n 2
+```
+
+Then run the client in another terminal:
+
+```sh
+$ # mkdir build && cd build
+$ cmake -DBUILD_INTEGRATION_TEST=ON ../ && make
+$ make integration_test
+```
+
+2. *Integration test using Docker-compose*
+
+```sh
+# set up
+$ sudo docker-compose up --build
+# tear down
+$ sudo docker-compose down
 ```
