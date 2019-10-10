@@ -1,6 +1,9 @@
 //
 // Author: Jun Zhu, zhujun981661@gmail.com
 //
+#include <iostream>
+#include <future>
+
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
@@ -12,26 +15,29 @@ namespace karabo_bridge {
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 
+/*
+ * helper functions for unittest
+ */
+
 template<typename T>
-MsgpackObject packObject(T x)
-{
+msgpack::object_handle _packObject_t(T x) {
   msgpack::sbuffer sbuf;
   msgpack::pack(sbuf, x);
-  msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
-  return oh.get().as<MsgpackObject>();
+  return msgpack::unpack(sbuf.data(), sbuf.size());
 }
 
-MsgpackObject packBin(std::vector<int> x)
-{
+msgpack::object_handle _packBin_t(std::vector<int> x) {
   msgpack::sbuffer sbuf;
   msgpack::pack(sbuf, msgpack::type::raw_ref(reinterpret_cast<const char *>(x.data()),
                                              x.size() * sizeof(int)));
-  msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
-  return oh.get().as<MsgpackObject>();
+  return msgpack::unpack(sbuf.data(), sbuf.size());
 }
 
-TEST(TestMultipartMsg, TestGeneral)
-{
+/*
+ * test cases
+ */
+
+TEST(TestMultipartMsg, TestGeneral) {
   MultipartMsg mpmsg;
 
   std::stringstream ss;
@@ -50,11 +56,11 @@ TEST(TestMultipartMsg, TestGeneral)
             parseMultipartMsg(mpmsg, false));
 }
 
-TEST(TestKbData, TestGeneral)
-{
-  auto obj1 = packObject<int>(100);
-  auto obj2 = packObject<float>(0.002);
-  ObjectMap obj_data{{"obj1", obj1}, {"obj2", obj2}};
+TEST(TestKbData, TestGeneral) {
+  auto oh1 = _packObject_t<int>(100);
+  auto oh2 = _packObject_t<float>(0.002);
+  ObjectMap obj_data{{"obj1", oh1.get().as<MsgpackObject>()},
+                     {"obj2", oh2.get().as<MsgpackObject>()}};
 
   uint16_t a[12] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
   NDArray arr1((void *) a, std::vector<std::size_t>{2, 2, 3}, "uint16_t");
@@ -77,8 +83,7 @@ TEST(TestKbData, TestGeneral)
   EXPECT_EQ(data.end(), it);
 }
 
-TEST(TestNdarray, TestGeneral)
-{
+TEST(TestNdarray, TestGeneral) {
   uint16_t a[12] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 
   NDArray array_uint16((void *) a, std::vector<std::size_t>{2, 2, 3}, "uint16_t");
@@ -101,9 +106,9 @@ TEST(TestNdarray, TestGeneral)
   EXPECT_THROW((array_uint16.as<std::array<uint16_t, 13>>()), CastErrorNDArray);
 }
 
-TEST(TestMsgpackObject, TestGeneral)
-{
-  auto obj_uint = packObject<std::size_t>(2147483648);
+TEST(TestMsgpackObject, TestGeneral) {
+  auto oh_uint = _packObject_t<std::size_t>(2147483648);
+  auto obj_uint = oh_uint.get().as<MsgpackObject>();
   EXPECT_EQ(0, obj_uint.size());
   EXPECT_EQ("uint64_t", obj_uint.dtype());
   EXPECT_EQ("", obj_uint.containerType());
@@ -111,47 +116,64 @@ TEST(TestMsgpackObject, TestGeneral)
   // Msgpack does the overflow check. So we can give the type check task to msgpack safely.
   EXPECT_THROW(obj_uint.as<int>(), CastErrorMsgpackObject);
 
-  auto obj_int = packObject<int>(-10);
+  auto oh_int = _packObject_t<int>(-10);
+  auto obj_int = oh_int.get().as<MsgpackObject>();
   EXPECT_EQ(0, obj_int.size());
   EXPECT_EQ("int64_t", obj_int.dtype());
   EXPECT_TRUE(obj_int.containerType().empty());
   EXPECT_EQ(-10, obj_int.as<int64_t>());
 
-  auto obj_float = packObject<double>(0.00222);
+  auto oh_float = _packObject_t<double>(0.00222);
+  auto obj_float = oh_float.get().as<MsgpackObject>();
   EXPECT_EQ(0, obj_float.size());
   EXPECT_EQ("double", obj_float.dtype());
   EXPECT_TRUE(obj_float.containerType().empty());
   EXPECT_TRUE(obj_float.as<double>() - 0.00222 < 1e-10);
   EXPECT_THROW(obj_float.as<int>(), CastErrorMsgpackObject);
 
-  auto obj_nil = packObject(msgpack::type::nil_t());
+  auto oh_nil = _packObject_t(msgpack::type::nil_t());
+  auto obj_nil = oh_nil.get().as<MsgpackObject>();
   EXPECT_EQ(0, obj_nil.size());
   EXPECT_EQ("MSGPACK_OBJECT_NIL", obj_nil.dtype());
   EXPECT_TRUE(obj_nil.containerType().empty());
   EXPECT_THROW(obj_nil.as<int>(), CastErrorMsgpackObject);
 
-  std::vector<int> vec({1, 2, 3, 4});
-  auto obj_arr = packObject(vec);
-  EXPECT_EQ(4, obj_arr.size());
-  EXPECT_EQ("uint64_t", obj_arr.dtype());
-  EXPECT_EQ("array-like", obj_arr.containerType());
-  EXPECT_THAT(obj_arr.as<std::vector<int>>(), ElementsAreArray(vec));
-  EXPECT_THAT(obj_arr.as<std::deque<int>>(), ElementsAreArray(vec));
-  EXPECT_THAT((obj_arr.as<std::array<int, 4>>()), ElementsAreArray(vec));
-  EXPECT_THROW(obj_arr.as<double>(), CastErrorMsgpackObject);
+  std::vector<int> vec_int {1, 2, 3, 4};
+  auto oh_arr_int = _packObject_t(vec_int);
+  auto obj_arr_int = oh_arr_int.get().as<MsgpackObject>();
+  EXPECT_EQ(4, obj_arr_int.size());
+  // positive integer will be parsed as uint64_t
+  EXPECT_EQ("uint64_t", obj_arr_int.dtype());
+  EXPECT_EQ("array-like", obj_arr_int.containerType());
+  EXPECT_THAT(obj_arr_int.as<std::vector<int>>(), ElementsAreArray(vec_int));
+  EXPECT_THAT(obj_arr_int.as<std::deque<int>>(), ElementsAreArray(vec_int));
+  EXPECT_THAT((obj_arr_int.as<std::array<int, 4>>()), ElementsAreArray(vec_int));
+  EXPECT_THROW(obj_arr_int.as<double>(), CastErrorMsgpackObject);
 
-  auto obj_map = packObject<std::map<int, int>>({{1, 2}, {3, 4}});
+  std::deque<float> deq_f {1, 2, 3, 4};
+  auto oh_arr_f = _packObject_t(deq_f);
+  auto obj_arr_f = oh_arr_f.get().as<MsgpackObject>();
+  EXPECT_EQ(4, obj_arr_f.size());
+  EXPECT_EQ("float", obj_arr_f.dtype());
+  EXPECT_EQ("array-like", obj_arr_f.containerType());
+  EXPECT_THAT(obj_arr_f.as<std::vector<float>>(), ElementsAreArray(deq_f));
+  EXPECT_THAT(obj_arr_f.as<std::deque<float>>(), ElementsAreArray(deq_f));
+  EXPECT_THAT((obj_arr_f.as<std::array<float, 4>>()), ElementsAreArray(deq_f));
+  EXPECT_THROW(obj_arr_f.as<double>(), CastErrorMsgpackObject);
+
+  auto oh_map = _packObject_t<std::map<int, int>>({{1, 2}, {3, 4}});
+  auto obj_map = oh_map.get().as<MsgpackObject>();
   EXPECT_EQ(2, obj_map.size());
   EXPECT_EQ("undefined", obj_map.dtype());
   EXPECT_EQ("map", obj_map.containerType());
 
-  auto obj_bin = packBin(std::vector<int>({1, 2, 3, 4}));
+  auto oh_bin = _packBin_t(std::vector<int>({1, 2, 3, 4}));
+  auto obj_bin = oh_bin.get().as<MsgpackObject>();
   EXPECT_EQ(16, obj_bin.size());
   EXPECT_EQ("char", obj_bin.dtype());
   EXPECT_EQ("array-like", obj_bin.containerType());
   EXPECT_THROW(obj_bin.as<std::vector<float>>(), CastErrorMsgpackObject);
   EXPECT_NO_THROW(obj_bin.as<std::vector<unsigned char>>());
-
 }
 
 } // karabo_bridge
