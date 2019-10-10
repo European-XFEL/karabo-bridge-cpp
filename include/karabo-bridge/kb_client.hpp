@@ -37,6 +37,10 @@
 #pragma message("DEPRECATED is not defined for this compiler")
 #endif
 
+#define KARABO_BRIDGE_VERSION_MAJOR 0
+#define KARABO_BRIDGE_VERSION_MINOR 2
+#define KARABO_BRIDGE_VERSION_PATCH 0
+
 
 namespace karabo_bridge {
 
@@ -63,7 +67,6 @@ class CastError : public std::exception {
     std::string msg_;
 public:
     explicit CastError(const std::string& msg) : msg_(msg) {}
-
     virtual const char* what() const throw() {
         return msg_.c_str() ;
     }
@@ -148,7 +151,10 @@ public:
             size_ = value.via.array.size;
 
         if (value.type == msgpack::type::object_type::ARRAY)
-            dtype_ = msgpack_type_map.at(value.via.array.ptr[0].type);
+            if (value.via.array.ptr)
+                dtype_ = msgpack_type_map.at(value.via.array.ptr[0].type);
+            else
+                dtype_ = "unknown";
         else if (value.type == msgpack::type::object_type::BIN)
             dtype_ = "char";
         else if (value.type == msgpack::type::object_type::MAP
@@ -369,11 +375,6 @@ struct kb_data {
     template<typename T>
     std::pair<iterator, bool> insert(T&& value) {
         return data_.insert(std::forward<T>(value));
-    }
-
-    // Use bytesReceived for clarity
-    DEPRECATED std::size_t size() const {
-        return bytesReceived();
     }
 
     std::size_t bytesReceived() const {

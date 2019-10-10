@@ -1,0 +1,29 @@
+##############################################################################
+# Copyright (c) 2018, European X-Ray Free-Electron Laser Facility GmbH
+# All rights reserved.
+#
+# You should have received a copy of the 3-Clause BSD License along with this
+# program. If not, see <https://opensource.org/licenses/BSD-3-Clause>
+#
+# Author: Jun Zhu, zhujun981661@gmail.com
+##############################################################################
+
+# karabo-bridge cmake module
+# This module sets the following variables in your project::
+#
+#   karabo-bridge_FOUND - true if karabo-bridge found on the system
+#   karabo-bridge_INCLUDE_DIRS - the directory containing karabo-bridge headers
+#   karabo-bridge_LIBRARIES - empty
+
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(cppzmq @cppzmq_REQUIRED_VERSION@)
+
+find_dependency(msgpack @msgpack_REQUIRED_VERSION@)
+
+if(NOT TARGET @PROJECT_NAME@)
+  include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
+  get_target_property(@PROJECT_NAME@_INCLUDE_DIRS karabo-bridge INTERFACE_INCLUDE_DIRECTORIES)
+endif()

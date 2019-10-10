@@ -10,12 +10,10 @@
 
 cmake_minimum_required(VERSION 3.1)
 
-PROJECT(karabo-bridge_integration_test)
-
 if (NOT TARGET karabo-bridge)
-    project(karabo-bridge-integration-test)
+    project(karabo-bridge_glimps)
     find_package(karabo-bridge REQUIRED CONFIG)
 endif()
 
-add_executable(pysim_client client_for_pysim.cpp)
-target_link_libraries(pysim_client PRIVATE karabo-bridge)
+add_executable(glimpse glimpse.cpp)
+target_link_libraries(glimpse PRIVATE karabo-bridge)
