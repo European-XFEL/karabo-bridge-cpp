@@ -63,9 +63,11 @@ TEST(TestClient, TestTimeout) {
   client.connect("tcp://localhost:12345");
 
   auto future = std::async(std::launch::async, [&client]() {
+      // test the internal recv_ready_ flag
+      client.next();
       client.next();
   });
-  EXPECT_TRUE(future.wait_for(std::chrono::milliseconds(2*timeout)) == std::future_status::ready);
+  EXPECT_TRUE(future.wait_for(std::chrono::milliseconds(3*timeout)) == std::future_status::ready);
 
   //  test client without timeout
   auto client_inf = new Client;

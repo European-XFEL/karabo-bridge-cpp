@@ -91,6 +91,11 @@ public:
     {}
 };
 
+class ZmqTimeoutError : public std::runtime_error {
+public:
+  ZmqTimeoutError() : std::runtime_error("") {}
+};
+
 /*
  * Use to check data type before casting an NDArray object.
  *
@@ -587,6 +592,10 @@ class Client {
     zmq::context_t ctx_;
     zmq::socket_t socket_;
 
+    // Set to true if the client has sent request to the server to ask
+    // for data.
+    bool recv_ready_ = false;
+
     /*
      * Send a "next" request to server.
      */
@@ -604,7 +613,9 @@ class Client {
         MultipartMsg mpmsg;
         while (true) {
             zmq::message_t msg;
-            socket_.recv(&msg);
+            auto flag = socket_.recv(&msg);
+            if (!flag) throw ZmqTimeoutError();
+
             mpmsg.emplace_back(std::move(msg));
             std::size_t more_size = sizeof(int64_t);
             socket_.getsockopt(ZMQ_RCVMORE, &more, &more_size);
@@ -634,7 +645,7 @@ public:
      *
      * @param timeout: connection timeout in milliseconds. "-1" (default) for infinite.
      */
-    Client(int timeout=-1): ctx_(1), socket_(ctx_, ZMQ_REQ) {
+    explicit Client(int timeout=-1): ctx_(1), socket_(ctx_, ZMQ_REQ) {
       socket_.setsockopt(ZMQ_RCVTIMEO, timeout);
       socket_.setsockopt(ZMQ_LINGER, 0);
     }
@@ -662,12 +673,20 @@ public:
     std::map<std::string, kb_data> next() {
         std::map<std::string, kb_data> data_pkg;
 
-        sendRequest();
-        MultipartMsg mpmsg = receiveMultipartMsg();
+        if (!recv_ready_) {
+            sendRequest();
+            recv_ready_ = true;
+        }
 
-        // In case of timeout, "mpmsg" will contain an empty msg (parseMsg output
-        // "insufficient bytes".
-        if (mpmsg.size() <= 1) return data_pkg;
+        MultipartMsg mpmsg;
+        try {
+            mpmsg = receiveMultipartMsg();
+            recv_ready_ = false;
+        } catch (const ZmqTimeoutError&) {
+            return data_pkg;
+        }
+
+        if (mpmsg.empty()) return data_pkg;
 
         if (mpmsg.size() % 2)
             throw std::runtime_error(
@@ -692,6 +711,7 @@ public:
                     is_initialized = true;
                 else {
                     data_pkg.insert(std::make_pair(source, std::move(kbdt)));
+                    // TODO: the following 'swap" seems to be redundant
                     kb_data empty_data;
                     kbdt.swap(empty_data);
                 }
@@ -718,9 +738,8 @@ public:
                 auto dtype = header_unpacked.at("dtype").as<std::string>();
                 toCppTypeString(dtype);
 
-                kbdt.array.insert(std::make_pair(
-                    header_unpacked.at("path").as<std::string>(),
-                    NDArray(it->data(), shape, dtype)));
+                kbdt.array.insert(std::make_pair(header_unpacked.at("path").as<std::string>(),
+                                                 NDArray(it->data(), shape, dtype)));
             } else {
                 throw std::runtime_error("Unknown data content: " + content);
             }
