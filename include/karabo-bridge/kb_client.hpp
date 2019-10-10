@@ -653,11 +653,6 @@ public:
         socket_.connect(endpoint);
     }
 
-    void close() {
-      socket_.close();
-      ctx_.close();
-    }
-
     /*
      * Request and return the next data from the server.
      *

@@ -68,14 +68,14 @@ TEST(TestClient, TestTimeout) {
   EXPECT_TRUE(future.wait_for(std::chrono::milliseconds(2*timeout)) == std::future_status::ready);
 
   //  test client without timeout
-  Client client_inf;
-  client_inf.connect("tcp://localhost:12346");
+  auto client_inf = new Client;
+  client_inf->connect("tcp://localhost:12346");
 
   auto future_inf = std::async(std::launch::async, [&client_inf]() {
-      client_inf.next();
+      client_inf->next();
   });
   EXPECT_TRUE(future_inf.wait_for(std::chrono::milliseconds(2*timeout)) == std::future_status::timeout);
-  client_inf.close(); // close the blocking socket
+  delete client_inf; // close the blocking socket
 }
 
 TEST(TestKbData, TestGeneral) {
