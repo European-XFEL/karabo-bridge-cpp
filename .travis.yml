@@ -36,7 +36,7 @@ matrix:
         - export LD_LIBRARY_PATH="${HOME}/miniconda/lib"
         - mkdir build && cd build
         - cmake -DBUILD_TESTS=ON -DBUILD_INTEGRATION_TEST=ON -DBUILD_EXAMPLES=ON ../
-        - make && make test
+        - make && make kbtest
         - karabo-bridge-server-sim -d AGIPD -n 2 1234&
         - integration_test/pysim_client localhost:1234
 

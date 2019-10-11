@@ -25,6 +25,6 @@ COPY . ./karabo-bridge-cpp
 RUN cd karabo-bridge-cpp && if [ -d build ]; then rm -r build; fi && \
     mkdir build && cd build && \
     cmake -DBUILD_TESTS=ON -DBUILD_INTEGRATION_TEST=ON -DBUILD_EXAMPLES=ON ../ && \
-    make && make test
+    make && make kbtest
 
 CMD ["/bin/bash"]
