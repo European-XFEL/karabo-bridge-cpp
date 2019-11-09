@@ -10,8 +10,8 @@
     Author: Jun Zhu, zhujun981661@gmail.com
 */
 
-#ifndef KARABO_BRIDGE_CPP_KB_CLIENT_HPP
-#define KARABO_BRIDGE_CPP_KB_CLIENT_HPP
+#ifndef KARABO_BRIDGE_KB_CLIENT_HPP
+#define KARABO_BRIDGE_KB_CLIENT_HPP
 
 #include <zmq.hpp>
 #include <msgpack.hpp>
@@ -45,21 +45,6 @@
 namespace karabo_bridge {
 
 using MultipartMsg = std::deque<zmq::message_t>;
-
-// map msgpack object types to strings
-std::map<msgpack::type::object_type, std::string> msgpack_type_map = {
-    {msgpack::type::object_type::NIL, "MSGPACK_OBJECT_NIL"},
-    {msgpack::type::object_type::BOOLEAN, "bool"},
-    {msgpack::type::object_type::POSITIVE_INTEGER, "uint64_t"},
-    {msgpack::type::object_type::NEGATIVE_INTEGER, "int64_t"},
-    {msgpack::type::object_type::FLOAT32, "float"},
-    {msgpack::type::object_type::FLOAT64, "double"},
-    {msgpack::type::object_type::STR, "string"},
-    {msgpack::type::object_type::ARRAY, "MSGPACK_OBJECT_ARRAY"},
-    {msgpack::type::object_type::MAP, "MSGPACK_OBJECT_MAP"},
-    {msgpack::type::object_type::BIN, "MSGPACK_OBJECT_BIN"},
-    {msgpack::type::object_type::EXT, "MSGPACK_OBJECT_EXT"}
-};
 
 // Define exceptions to ease debugging
 
@@ -95,26 +80,6 @@ class ZmqTimeoutError : public std::runtime_error {
 public:
   ZmqTimeoutError() : std::runtime_error("") {}
 };
-
-/*
- * Use to check data type before casting an NDArray object.
- *
- * Implicit type conversion is not allowed.
- */
-template <typename T>
-bool checkTypeByString(const std::string& type_string) {
-    if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return true;
-    if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return true;
-    if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return true;
-    if (type_string == "uint8_t" && std::is_same<T, uint8_t>::value) return true;
-    if (type_string == "int64_t" && std::is_same<T, int64_t>::value) return true;
-    if (type_string == "int32_t" && std::is_same<T, int32_t>::value) return true;
-    if (type_string == "int16_t" && std::is_same<T, int16_t>::value) return true;
-    if (type_string == "int8_t" && std::is_same<T, int8_t>::value) return true;
-    if (type_string == "float" && std::is_same<T, float>::value) return true;
-    if (type_string == "double" && std::is_same<T, double>::value) return true;
-    return (type_string == "bool" && std::is_same<T, bool>::value);
-}
 
 /*
  * Abstract class for MsgpackObject and NDArray.
@@ -157,7 +122,7 @@ public:
 
         if (value.type == msgpack::type::object_type::ARRAY)
             if (value.via.array.ptr)
-                dtype_ = msgpack_type_map.at(value.via.array.ptr[0].type);
+                dtype_ = getTypeString(value.via.array.ptr[0].type);
             else
                 dtype_ = "unknown";
         else if (value.type == msgpack::type::object_type::BIN)
@@ -165,7 +130,7 @@ public:
         else if (value.type == msgpack::type::object_type::MAP
                 || value.type == msgpack::type::object_type::EXT)
             dtype_ = "undefined";
-        else dtype_ = msgpack_type_map.at(value.type);
+        else dtype_ = getTypeString(value.type);
     }
 
     ~MsgpackObject() override = default;
@@ -212,7 +177,27 @@ public:
                 || value_.type == msgpack::type::object_type::BIN)
             return "array-like";
         if (value_.type == msgpack::type::object_type::MAP) return "map";
-        return msgpack_type_map.at(value_.type);
+        return getTypeString(value_.type);
+    }
+
+private:
+    // map msgpack object types to strings
+    static std::string getTypeString(msgpack::type::object_type type) {
+        const std::map<msgpack::type::object_type, std::string> map {
+            {msgpack::type::object_type::NIL, "MSGPACK_OBJECT_NIL"},
+            {msgpack::type::object_type::BOOLEAN, "bool"},
+            {msgpack::type::object_type::POSITIVE_INTEGER, "uint64_t"},
+            {msgpack::type::object_type::NEGATIVE_INTEGER, "int64_t"},
+            {msgpack::type::object_type::FLOAT32, "float"},
+            {msgpack::type::object_type::FLOAT64, "double"},
+            {msgpack::type::object_type::STR, "string"},
+            {msgpack::type::object_type::ARRAY, "MSGPACK_OBJECT_ARRAY"},
+            {msgpack::type::object_type::MAP, "MSGPACK_OBJECT_MAP"},
+            {msgpack::type::object_type::BIN, "MSGPACK_OBJECT_BIN"},
+            {msgpack::type::object_type::EXT, "MSGPACK_OBJECT_EXT"}
+        };
+
+        return map.at(type);
     }
 };
 
@@ -288,7 +273,7 @@ public:
              typename = typename std::enable_if<!std::is_integral<Container>::value>::type>
     Container as() const {
         typedef typename Container::value_type ElementType;
-        if (!checkTypeByString<ElementType>(dtype_))
+        if (!validateType<ElementType>(dtype_))
             throw TypeMismatchErrorNDArray(
                 "The expected type is a(n) " + containerType() + " of " + dtype());
         detail::as_imp<Container, ElementType> as_imp_instance;
@@ -309,13 +294,34 @@ public:
      */
     template<typename T>
     T* data() const {
-        if (!checkTypeByString<T>(dtype_))
+        if (!validateType<T>(dtype_))
             throw TypeMismatchErrorNDArray("The expected pointer type is " + dtype());
         return reinterpret_cast<T*>(ptr_);
     }
 
     // Return a void pointer to the held array data.
     void* data() const { return ptr_; }
+
+private:
+    /*
+     * Use to check data type before casting an NDArray object.
+     *
+     * Implicit type conversion is not allowed.
+     */
+    template <typename T>
+    static bool validateType(const std::string& type_string) {
+        if (type_string == "uint64_t" && std::is_same<T, uint64_t>::value) return true;
+        if (type_string == "uint32_t" && std::is_same<T, uint32_t>::value) return true;
+        if (type_string == "uint16_t" && std::is_same<T, uint16_t>::value) return true;
+        if (type_string == "uint8_t" && std::is_same<T, uint8_t>::value) return true;
+        if (type_string == "int64_t" && std::is_same<T, int64_t>::value) return true;
+        if (type_string == "int32_t" && std::is_same<T, int32_t>::value) return true;
+        if (type_string == "int16_t" && std::is_same<T, int16_t>::value) return true;
+        if (type_string == "int8_t" && std::is_same<T, int8_t>::value) return true;
+        if (type_string == "float" && std::is_same<T, float>::value) return true;
+        if (type_string == "double" && std::is_same<T, double>::value) return true;
+        return (type_string == "bool" && std::is_same<T, bool>::value);
+    }
 };
 
 } // karabo_bridge
@@ -411,151 +417,6 @@ private:
 };
 
 /*
- * Parse a single message packed by msgpack using "visitor".
- */
-std::string parseMsg(const zmq::message_t& msg) {
-    /*
-     * Visitor used to unfold the hierarchy of an unknown data structure,
-     */
-    struct visitor {
-        std::string& m_s;
-        bool m_ref;
-
-        explicit visitor(std::string& s):m_s(s), m_ref(false) {}
-        ~visitor() { m_s += "\n"; }
-
-        bool visit_nil() {
-          m_s += "null";
-          return true;
-        }
-        bool visit_boolean(bool v) {
-          if (v) m_s += "true";
-          else m_s += "false";
-          return true;
-        }
-        bool visit_positive_integer(uint64_t v) {
-          std::stringstream ss;
-          ss << v;
-          m_s += ss.str();
-          return true;
-        }
-        bool visit_negative_integer(int64_t v) {
-          std::stringstream ss;
-          ss << v;
-          m_s += ss.str();
-          return true;
-        }
-        bool visit_float32(float v) {
-          std::stringstream ss;
-          ss << v;
-          m_s += ss.str();
-          return true;
-        }
-        bool visit_float64(double v) {
-          std::stringstream ss;
-          ss << v;
-          m_s += ss.str();
-          return true;
-        }
-        bool visit_str(const char* v, uint32_t size) {
-          m_s += '"' + std::string(v, size) + '"';
-          return true;
-        }
-        bool visit_bin(const char* v, uint32_t size) {
-          if (is_key_)
-            m_s += std::string(v, size);
-          else m_s += "(bin)";
-          return true;
-        }
-        bool visit_ext(const char* /*v*/, uint32_t /*size*/) {
-          return true;
-        }
-        bool start_array_item() {
-          return true;
-        }
-        bool start_array(uint32_t /*size*/) {
-          m_s += "[";
-          return true;
-        }
-        bool end_array_item() {
-          m_s += ",";
-          return true;
-        }
-        bool end_array() {
-          m_s.erase(m_s.size() - 1, 1); // remove the last ','
-          m_s += "]";
-          return true;
-        }
-        bool start_map(uint32_t /*num_kv_pairs*/) {
-          tracker_.push(level_++);
-          return true;
-        }
-        bool start_map_key() {
-          is_key_ = true;
-          m_s += "\n";
-
-          for (int i=0; i< tracker_.top(); ++i) m_s += "    ";
-          return true;
-        }
-        bool end_map_key() {
-          m_s += ": ";
-          is_key_ = false;
-          return true;
-        }
-        bool start_map_value() {
-          return true;
-        }
-        bool end_map_value() {
-          m_s += ",";
-          return true;
-        }
-        bool end_map() {
-          m_s.erase(m_s.size() - 1, 1); // remove the last ','
-          tracker_.pop();
-          --level_;
-          return true;
-        }
-        void parse_error(size_t /*parsed_offset*/, size_t /*error_offset*/) {
-          std::cerr << "parse error"<<std::endl;
-        }
-        void insufficient_bytes(size_t /*parsed_offset*/, size_t /*error_offset*/) {
-          std::cout << "insufficient bytes" << std::endl;
-        }
-
-        // These two functions are required by parser.
-        void set_referenced(bool ref) { m_ref = ref; }
-        bool referenced() const { return m_ref; }
-
-      private:
-        std::stack<int> tracker_;
-        uint16_t level_ = 0;
-        bool is_key_ = false;
-    };
-
-    std::string data_str;
-    visitor vst(data_str);
-#ifdef DEBUG
-    assert(msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), visitor));
-#else
-    msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), vst);
-#endif
-    return data_str;
-}
-
-/*
- * Parse a multipart message packed by msgpack using "visitor".
- */
-std::string parseMultipartMsg(const MultipartMsg& mpmsg, bool boundary=true) {
-    std::string output;
-    std::string separator("\n----------new message----------\n");
-    for (auto& msg : mpmsg) {
-        if (boundary) output.append(separator);
-        output.append(parseMsg(msg));
-    }
-    return output;
-}
-
-/*
  * Convert a vector to a formatted string
  */
 template <typename T>
@@ -622,6 +483,151 @@ class Client {
             if (more == 0) break;
         }
         return mpmsg;
+    }
+
+    /*
+     * Parse a single message packed by msgpack using "visitor".
+     */
+    static std::string parseMsg(const zmq::message_t& msg) {
+        /*
+         * Visitor used to unfold the hierarchy of an unknown data structure,
+         */
+        struct visitor {
+            std::string& m_s;
+            bool m_ref;
+
+            explicit visitor(std::string& s):m_s(s), m_ref(false) {}
+            ~visitor() { m_s += "\n"; }
+
+            bool visit_nil() {
+                m_s += "null";
+                return true;
+            }
+            bool visit_boolean(bool v) {
+                if (v) m_s += "true";
+                else m_s += "false";
+                return true;
+            }
+            bool visit_positive_integer(uint64_t v) {
+                std::stringstream ss;
+                ss << v;
+                m_s += ss.str();
+                return true;
+            }
+            bool visit_negative_integer(int64_t v) {
+                std::stringstream ss;
+                ss << v;
+                m_s += ss.str();
+                return true;
+            }
+            bool visit_float32(float v) {
+                std::stringstream ss;
+                ss << v;
+                m_s += ss.str();
+                return true;
+            }
+            bool visit_float64(double v) {
+                std::stringstream ss;
+                ss << v;
+                m_s += ss.str();
+                return true;
+            }
+            bool visit_str(const char* v, uint32_t size) {
+                m_s += '"' + std::string(v, size) + '"';
+                return true;
+            }
+            bool visit_bin(const char* v, uint32_t size) {
+                if (is_key_)
+                    m_s += std::string(v, size);
+                else m_s += "(bin)";
+                return true;
+            }
+            bool visit_ext(const char* /*v*/, uint32_t /*size*/) {
+                return true;
+            }
+            bool start_array_item() {
+                return true;
+            }
+            bool start_array(uint32_t /*size*/) {
+                m_s += "[";
+                return true;
+            }
+            bool end_array_item() {
+                m_s += ",";
+                return true;
+            }
+            bool end_array() {
+                m_s.erase(m_s.size() - 1, 1); // remove the last ','
+                m_s += "]";
+                return true;
+            }
+            bool start_map(uint32_t /*num_kv_pairs*/) {
+                tracker_.push(level_++);
+                return true;
+            }
+            bool start_map_key() {
+                is_key_ = true;
+                m_s += "\n";
+
+                for (int i=0; i< tracker_.top(); ++i) m_s += "    ";
+                return true;
+            }
+            bool end_map_key() {
+                m_s += ": ";
+                is_key_ = false;
+                return true;
+            }
+            bool start_map_value() {
+                return true;
+            }
+            bool end_map_value() {
+                m_s += ",";
+                return true;
+            }
+            bool end_map() {
+                m_s.erase(m_s.size() - 1, 1); // remove the last ','
+                tracker_.pop();
+                --level_;
+                return true;
+            }
+            void parse_error(size_t /*parsed_offset*/, size_t /*error_offset*/) {
+                std::cerr << "parse error"<<std::endl;
+            }
+            void insufficient_bytes(size_t /*parsed_offset*/, size_t /*error_offset*/) {
+                std::cout << "insufficient bytes" << std::endl;
+            }
+
+            // These two functions are required by parser.
+            void set_referenced(bool ref) { m_ref = ref; }
+            bool referenced() const { return m_ref; }
+
+        private:
+            std::stack<int> tracker_;
+            uint16_t level_ = 0;
+            bool is_key_ = false;
+        };
+
+        std::string data_str;
+        visitor vst(data_str);
+    #ifdef DEBUG
+        assert(msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), visitor));
+    #else
+        msgpack::parse(static_cast<const char*>(msg.data()), msg.size(), vst);
+    #endif
+        return data_str;
+    }
+
+    /*
+     * Parse a multipart message packed by msgpack using "visitor".
+     */
+    static std::string parseMultipartMsg(const MultipartMsg& mpmsg, bool boundary=true) {
+        std::string output;
+        std::string separator("\n----------new message----------\n");
+        for (auto& msg : mpmsg) {
+            if (boundary) output.append(separator);
+            output.append(parseMsg(msg));
+        }
+        return output;
     }
 
     /*
@@ -801,4 +807,4 @@ public:
 
 } // karabo_bridge
 
-#endif //KARABO_BRIDGE_CPP_KB_CLIENT_HPP
+#endif //KARABO_BRIDGE_KB_CLIENT_HPP

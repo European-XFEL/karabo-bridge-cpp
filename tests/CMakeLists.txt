@@ -20,7 +20,10 @@ endif()
 
 find_package(Threads REQUIRED)
 
-add_executable(test_karabo-bridge test_kbclient.cpp)
+add_executable(test_karabo-bridge
+    test_kbclient.cpp
+    test_kbdata.cpp)
+
 target_link_libraries(test_karabo-bridge
     PRIVATE
         karabo-bridge
