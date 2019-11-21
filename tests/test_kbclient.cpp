@@ -58,8 +58,8 @@ TEST(TestMultipartMsg, TestGeneral) {
 
 TEST(TestClient, TestTimeout) {
   // test client with short timeout
-  int timeout = 100;
-  Client client(timeout);
+  int timeout = 100; // in millisecond
+  Client client(0.001 * timeout);
   client.connect("tcp://localhost:12345");
 
   auto future = std::async(std::launch::async, [&client]() {

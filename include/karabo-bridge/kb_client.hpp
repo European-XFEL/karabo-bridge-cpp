@@ -643,10 +643,10 @@ public:
     /*
      * Constructor.
      *
-     * @param timeout: connection timeout in milliseconds. "-1" (default) for infinite.
+     * @param timeout: connection timeout in second. "-1." (default) for infinite.
      */
-    explicit Client(int timeout=-1): ctx_(1), socket_(ctx_, ZMQ_REQ) {
-      socket_.setsockopt(ZMQ_RCVTIMEO, timeout);
+    explicit Client(double timeout=-1.): ctx_(1), socket_(ctx_, ZMQ_REQ) {
+      socket_.setsockopt(ZMQ_RCVTIMEO, timeout < 0 ? -1 : static_cast<int>(1000 * timeout));
       socket_.setsockopt(ZMQ_LINGER, 0);
     }
 
