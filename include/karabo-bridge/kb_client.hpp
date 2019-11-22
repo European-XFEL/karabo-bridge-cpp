@@ -91,6 +91,11 @@ public:
     {}
 };
 
+class ZmqTimeoutError : public std::runtime_error {
+public:
+  ZmqTimeoutError() : std::runtime_error("") {}
+};
+
 /*
  * Use to check data type before casting an NDArray object.
  *
@@ -514,7 +519,7 @@ std::string parseMsg(const zmq::message_t& msg) {
           std::cerr << "parse error"<<std::endl;
         }
         void insufficient_bytes(size_t /*parsed_offset*/, size_t /*error_offset*/) {
-          std::cout << "insufficient bytes"<<std::endl;
+          std::cout << "insufficient bytes" << std::endl;
         }
 
         // These two functions are required by parser.
@@ -587,6 +592,10 @@ class Client {
     zmq::context_t ctx_;
     zmq::socket_t socket_;
 
+    // Set to true if the client has sent request to the server to ask
+    // for data.
+    bool recv_ready_ = false;
+
     /*
      * Send a "next" request to server.
      */
@@ -604,7 +613,9 @@ class Client {
         MultipartMsg mpmsg;
         while (true) {
             zmq::message_t msg;
-            socket_.recv(&msg);
+            auto flag = socket_.recv(&msg);
+            if (!flag) throw ZmqTimeoutError();
+
             mpmsg.emplace_back(std::move(msg));
             std::size_t more_size = sizeof(int64_t);
             socket_.getsockopt(ZMQ_RCVMORE, &more, &more_size);
@@ -629,11 +640,28 @@ class Client {
     }
 
 public:
-    Client(): ctx_(1), socket_(ctx_, ZMQ_REQ) {}
+    /*
+     * Constructor.
+     *
+     * @param timeout: connection timeout in second. "-1." (default) for infinite.
+     */
+    explicit Client(double timeout=-1.): ctx_(1), socket_(ctx_, ZMQ_REQ) {
+      socket_.setsockopt(ZMQ_RCVTIMEO, timeout < 0 ? -1 : static_cast<int>(1000 * timeout));
+      socket_.setsockopt(ZMQ_LINGER, 0);
+    }
+
+    // The destructor of zmq::context_t calls 'zmq_ctx_destroy'.
+    // The destructor of zmq::socket_t calls 'zmq_close'.
+    ~Client() = default;
+
+    // The copy and copy assignment constructor are implicitly deleted since
+    // those of zmq::context_t and zmq::socket_t are deleted.
+    Client(const Client&) = delete;
+    Client& operator=(const Client&) = delete;
 
     void connect(const std::string& endpoint) {
         std::cout << "Connecting to server: " << endpoint << std::endl;
-        socket_.connect(endpoint.c_str());
+        socket_.connect(endpoint);
     }
 
     /*
@@ -645,9 +673,21 @@ public:
     std::map<std::string, kb_data> next() {
         std::map<std::string, kb_data> data_pkg;
 
-        sendRequest();
-        MultipartMsg mpmsg = receiveMultipartMsg();
+        if (!recv_ready_) {
+            sendRequest();
+            recv_ready_ = true;
+        }
+
+        MultipartMsg mpmsg;
+        try {
+            mpmsg = receiveMultipartMsg();
+            recv_ready_ = false;
+        } catch (const ZmqTimeoutError&) {
+            return data_pkg;
+        }
+
         if (mpmsg.empty()) return data_pkg;
+
         if (mpmsg.size() % 2)
             throw std::runtime_error(
                 "The multipart message is expected to contain (header, data) pairs!");
@@ -671,6 +711,7 @@ public:
                     is_initialized = true;
                 else {
                     data_pkg.insert(std::make_pair(source, std::move(kbdt)));
+                    // TODO: the following 'swap" seems to be redundant
                     kb_data empty_data;
                     kbdt.swap(empty_data);
                 }
@@ -697,9 +738,8 @@ public:
                 auto dtype = header_unpacked.at("dtype").as<std::string>();
                 toCppTypeString(dtype);
 
-                kbdt.array.insert(std::make_pair(
-                    header_unpacked.at("path").as<std::string>(),
-                    NDArray(it->data(), shape, dtype)));
+                kbdt.array.insert(std::make_pair(header_unpacked.at("path").as<std::string>(),
+                                                 NDArray(it->data(), shape, dtype)));
             } else {
                 throw std::runtime_error("Unknown data content: " + content);
             }
